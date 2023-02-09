@@ -6,8 +6,8 @@ ti.init(arch=ti.gpu)
 
 dim = 2
 quality = 1  # Use a larger integral number for higher quality
-n_particle_x = 100 * quality
-n_particle_y = 8 * quality
+n_particle_x = 2 * quality
+n_particle_y = 2 * quality
 n_particles = n_particle_x * n_particle_y
 n_elements = (n_particle_x - 1) * (n_particle_y - 1) * 2
 n_grid = 64 * quality
@@ -152,7 +152,7 @@ def g2p():
         C[p] = new_C
 
 
-gui = ti.GUI("MPM", (640, 640), background_color=0x112F41)
+gui = ti.GUI("MPM", (2048, 2048), background_color=0x112F41)
 
 
 def main():
@@ -166,6 +166,7 @@ def main():
             grid_v.fill(0)
             # Note that we are now differentiating the total energy w.r.t. the particle position.
             # Recall that F = - \partial (total_energy) / \partial x
+
             with ti.ad.Tape(total_energy):
                 # Do the forward computation of total energy and backward propagation for x.grad, which is later used in p2g
                 compute_total_energy()
