@@ -52,3 +52,4 @@ while window.running:
     for event in window.get_events(ti.ui.PRESS):
         if event.key in [ti.ui.ESCAPE]:
             window.running = False
+        

@@ -6,8 +6,8 @@ ti.init(arch=ti.gpu)
 
 dim = 2
 quality = 1  # Use a larger integral number for higher quality
-n_particle_x = 2 * quality
-n_particle_y = 2 * quality
+n_particle_x = 100 * quality
+n_particle_y = 8 * quality
 n_particles = n_particle_x * n_particle_y
 n_elements = (n_particle_x - 1) * (n_particle_y - 1) * 2
 n_grid = 64 * quality
@@ -151,40 +151,48 @@ def g2p():
         x[p] += dt * v[p]
         C[p] = new_C
 
+window = ti.ui.Window("MPM", (1500, 1080))
+canvas = window.get_canvas()
 
-gui = ti.GUI("MPM", (2048, 2048), background_color=0x112F41)
-
+paused = ti.field(int, shape=())
+ball_center = ti.Vector.field(2, float, shape=(1,))
+ball_center[0] = ti.Vector([0.5, 0.5])
 
 def main():
     initialize()
 
     vertices_ = vertices.to_numpy()
 
-    while gui.running and not gui.get_event(gui.ESCAPE):
-        for s in range(int(1e-2 // dt)):
-            grid_m.fill(0)
-            grid_v.fill(0)
-            # Note that we are now differentiating the total energy w.r.t. the particle position.
-            # Recall that F = - \partial (total_energy) / \partial x
+    while window.running:
+        if window.is_pressed(ti.ui.SPACE):
+            paused[None] = not paused[None]
+        if paused[None] == False:
+            for s in range(int(1e-2 // dt)):
+                grid_m.fill(0)
+                grid_v.fill(0)
+                # Note that we are now differentiating the total energy w.r.t. the particle position.
+                # Recall that F = - \partial (total_energy) / \partial x
 
-            with ti.ad.Tape(total_energy):
-                # Do the forward computation of total energy and backward propagation for x.grad, which is later used in p2g
-                compute_total_energy()
-                # It's OK not to use the computed total_energy at all, since we only need x.grad
-            p2g()
-            grid_op()
-            g2p()
+                with ti.ad.Tape(total_energy):
+                    # Do the forward computation of total energy and backward propagation for x.grad, which is later used in p2g
+                    compute_total_energy()
+                    # It's OK not to use the computed total_energy at all, since we only need x.grad
+                p2g()
+                grid_op()
+                g2p()
 
-        gui.circle((0.5, 0.5), radius=45, color=0x068587)
+        canvas.circles(ball_center, radius=0.1,color=(0.4, 0.4, 0.4))
+
         particle_pos = x.to_numpy()
         a = vertices_.reshape(n_elements * 3)
         b = np.roll(vertices_, shift=1, axis=1).reshape(n_elements * 3)
-        gui.lines(particle_pos[a], particle_pos[b], radius=1, color=0x4FB99F)
-        gui.circles(particle_pos, radius=1.5, color=0xF2B134)
-        gui.line((0.00, 0.03 / quality), (1.0, 0.03 / quality),
-                 color=0xFFFFFF,
-                 radius=3)
-        gui.show()
+
+
+        # canvas.lines(particle_pos[a], particle_pos[b], color=0x4FB99F)
+        canvas.circles(x,radius=0.001,color=(1,1,0))
+        canvas.lines(x,width=0.001,color=(1,0,0))
+        # canvas.line((0.00, 0.03 / quality), (1.0, 0.03 / quality), color=0xFFFFFF, radius=3)
+        window.show()
 
 
 if __name__ == '__main__':
