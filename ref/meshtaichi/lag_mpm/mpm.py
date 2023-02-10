@@ -112,7 +112,7 @@ def solve(cnt, fems, log=True):
     frame_time_left = frame_dt
     substep = 0
     while frame_time_left > 0.0:
-        if log: print(f"substep: {substep}")
+        # if log: print(f"substep: {substep}")
         substep += 1
 
         max_grid_v = computeMaxGridV(grid_v)

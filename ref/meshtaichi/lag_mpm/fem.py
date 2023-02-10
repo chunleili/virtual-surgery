@@ -76,4 +76,4 @@ class FEM():
                 self.f[e.verts[3].id] += -fi
 
         for v in mesh.verts:
-            self.f[v.id] += ti.Vector([0, 0, -gravity]) * self.m[v.id]
+            self.f[v.id] += ti.Vector([0, -gravity, 0]) * self.m[v.id]
