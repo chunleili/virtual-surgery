@@ -160,27 +160,11 @@ ball_center[0] = ti.Vector([0.5, 0.5])
 
 
 line_ind = ti.field(int, shape=(n_elements * 3 *2))
-
 def compute_ind():
     vertices_ = vertices.to_numpy()
-
     a = vertices_.reshape(n_elements * 3)
     b = np.roll(vertices_, shift=1, axis=1).reshape(n_elements * 3)
     line_ind_ = np.stack([a, b], axis=1).flatten()
-
-    # a = vertices_.reshape(n_elements * 3)
-    # b = np.zeros(n_elements * 3, dtype=int)
-    # line_ind_ = np.zeros((n_elements * 3 * 2), dtype=int)
-    # for i in range(n_elements * 3):
-    #     if i % 3 == 0:
-    #         b[i] = a[i + 2]
-    #         b[i + 1] = a[i]
-    #         b[i + 2] = a[i + 1]
-
-    # for i in range(n_elements * 3):
-    #     line_ind_[i * 2] = a[i]
-    #     line_ind_[i * 2 + 1] = b[i]
-
     line_ind.from_numpy(line_ind_)
 
 def main():
