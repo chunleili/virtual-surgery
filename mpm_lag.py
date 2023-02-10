@@ -158,15 +158,42 @@ paused = ti.field(int, shape=())
 ball_center = ti.Vector.field(2, float, shape=(1,))
 ball_center[0] = ti.Vector([0.5, 0.5])
 
+
+line_ind = ti.field(int, shape=(n_elements * 3 *2))
+
+def compute_ind():
+    vertices_ = vertices.to_numpy()
+
+    a = vertices_.reshape(n_elements * 3)
+    b = np.roll(vertices_, shift=1, axis=1).reshape(n_elements * 3)
+    line_ind_ = np.stack([a, b], axis=1).flatten()
+
+    # a = vertices_.reshape(n_elements * 3)
+    # b = np.zeros(n_elements * 3, dtype=int)
+    # line_ind_ = np.zeros((n_elements * 3 * 2), dtype=int)
+    # for i in range(n_elements * 3):
+    #     if i % 3 == 0:
+    #         b[i] = a[i + 2]
+    #         b[i + 1] = a[i]
+    #         b[i + 2] = a[i + 1]
+
+    # for i in range(n_elements * 3):
+    #     line_ind_[i * 2] = a[i]
+    #     line_ind_[i * 2 + 1] = b[i]
+
+    line_ind.from_numpy(line_ind_)
+
 def main():
     initialize()
 
-    vertices_ = vertices.to_numpy()
+    compute_ind()
 
     while window.running:
-        if window.is_pressed(ti.ui.SPACE):
-            paused[None] = not paused[None]
-        if paused[None] == False:
+        for e in window.get_events(ti.ui.PRESS):
+            if e.key == ti.ui.SPACE:
+                paused[None] = not paused[None]
+            if e.key == 'r': initialize()
+        if not paused[None]:
             for s in range(int(1e-2 // dt)):
                 grid_m.fill(0)
                 grid_v.fill(0)
@@ -183,14 +210,8 @@ def main():
 
         canvas.circles(ball_center, radius=0.1,color=(0.4, 0.4, 0.4))
 
-        particle_pos = x.to_numpy()
-        a = vertices_.reshape(n_elements * 3)
-        b = np.roll(vertices_, shift=1, axis=1).reshape(n_elements * 3)
-
-
-        # canvas.lines(particle_pos[a], particle_pos[b], color=0x4FB99F)
-        canvas.circles(x,radius=0.001,color=(1,1,0))
-        canvas.lines(x,width=0.001,color=(1,0,0))
+        canvas.circles(x,radius=0.002,color=(1,1,0))
+        canvas.lines(x,width=0.001,indices=line_ind, color=(79/255,185/255,159/255))
         # canvas.line((0.00, 0.03 / quality), (1.0, 0.03 / quality), color=0xFFFFFF, radius=3)
         window.show()
 
