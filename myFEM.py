@@ -8,9 +8,6 @@ ti.init(arch=ti.cpu, debug=True)
 dim=2
 n_particles = 3
 n_elements = 1
-area = 0.1*0.1*0.5
-# lam = 1
-# mu = 1
 dt = 1e-4
 E, nu = 1e3, 0.33  # Young's modulus and Poisson's ratio
 mu, lam = E / 2 / (1 + nu), E * nu / (1 + nu) / (1 - 2 * nu)  # Lame parameters
@@ -29,22 +26,27 @@ def init():
     X[0] = [0.5, 0.5]
     X[1] = [0.5, 0.6]
     X[2] = [0.6, 0.5]
-    x[0] = X[0] + [0, 0.01]
-    x[1] = X[1]
-    x[2] = X[2]
+
+    for i in x:
+        x[i] = X[i]
+    x[0] += [0, 0.01]
 
 
 Dm_inv = ti.Matrix.field(n=dim, m=dim, dtype=float, shape=n_elements) 
-@ti.kernel
+
+
 def substep():
+    compute_force()
+    time_integration()
+
+@ti.kernel
+def compute_force():
     #compute deformation gradient
     for i in range(n_elements):
         Dm =ti.Matrix([[x[1][0]-x[0][0], x[2][0]-x[0][0]], [x[1][1]-x[0][1], x[2][1]-x[0][1]]])
         Dm_inv[i] = Dm.inverse()
         Ds = ti.Matrix([[X[1][0]-X[0][0], X[2][0]-X[0][0]], [X[1][1]-X[0][1], X[2][1]-X[0][1]]])
         F[i] = Ds @ Dm_inv[i]
-
-    # print(F[0])
 
     #compute green strain
     for i in range(n_elements):
@@ -55,30 +57,40 @@ def substep():
         S[i] = 2 * mu *G[i] + lam * (G[i][0,0]+G[i][1,1]) * ti.Matrix([[1, 0], [0, 1]])
 
     #compute force(先暂且就计算一个三角形的力，后面再考虑多个三角形的情况)
-    force_matrix =  F[0] @ S[0] @ Dm_inv[0].transpose() * area
-    force[1] = ti.Vector([force_matrix[0, 0], force_matrix[1, 0]])
-    force[2] = ti.Vector([force_matrix[0, 1], force_matrix[1, 1]])
-    force[0] = -force[1] - force[2]
-
-    # print(force[0])
+    for i in range(n_elements):
+        ii0 = 3 * i + 0
+        ii1 = 3 * i + 1
+        ii2 = 3 * i + 2
+        area = ti.abs((X[ii2] - X[ii0]).cross(X[ii1] - X[ii0])) / 2 
+        force_matrix =  F[i] @ S[i] @ Dm_inv[i].transpose() * area
+        force[ii1] = ti.Vector([force_matrix[0, 0], force_matrix[1, 0]])
+        force[ii2] = ti.Vector([force_matrix[0, 1], force_matrix[1, 1]])
+        force[ii0] = -force[ii1] - force[ii2] 
 
     #gravity
     for i in range(n_particles):
-        force[i][1] -= 0.1
+        force[i][1] -= 1
 
+@ti.kernel
+def time_integration():
     #time integration(with boundary condition)
-    eps = 0.01
     for i in range(n_particles):
+        x_prev = x[i]
         vel[i] += dt * force[i]
-
-        #boundary condition
-        cond = (x[i] < eps) & (vel[i] < 0) | (x[i] > 1) & (vel[i] > eps)
-        for j in ti.static(range(dim)):
-            if cond[j]:
-                vel[i][j] = 0  
-         
         x[i] += dt * vel[i]
 
+        BC(i,x_prev)
+
+
+#boundary condition
+@ti.func
+def BC(i,x_prev):
+    eps = 0.01
+    cond = (x[i] < eps) & (vel[i] < 0) | (x[i] > 1) & (vel[i] > eps)
+    for j in ti.static(range(dim)):
+        if cond[j]:
+            vel[i][j] = 0  
+            x[i] = x_prev
 
 
 def main():

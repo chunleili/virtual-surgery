@@ -855,5 +855,4 @@ def main():
     ti.kernel_profiler_print()
 
 
-if __name__ == 'main':
-    main()
+main()
