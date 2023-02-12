@@ -108,8 +108,6 @@ def main():
             for s in range(int(1e-2 // dt)):
                 grid_m.fill(0)
                 grid_v.fill(0)
-                # Note that we are now differentiating the total energy w.r.t. the particle position.
-                # Recall that F = - \partial (total_energy) / \partial x
                 p2g()
                 grid_op()
                 g2p()
