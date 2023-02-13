@@ -1,5 +1,6 @@
 import taichi as ti
 
+# frame_dt = 1.5e-2
 frame_dt = 1.5e-2
 dt = 5e-4
 allowed_cfl = 0.8
@@ -64,7 +65,7 @@ def gridOp(dt : ti.f32):
         if mass > 0.0:
             grid_v[I] = grid_v[I] / mass
 
-        grid_v[I] = min(max(grid_v[I], -v_allowed), v_allowed)
+        grid_v[I] = ti.min(ti.max(grid_v[I], -v_allowed), v_allowed)
 
         # bounding box
         for x in ti.static(range(3)):
@@ -79,7 +80,7 @@ def computeMaxGridV(grid_v : ti.template()) -> ti.f32:
         v = grid_v[I]
         v_max = 0.0
         for i in ti.static(range(3)):
-            v_max = max(v_max, abs(v[i]))
+            v_max = ti.max(v_max, abs(v[i]))
         ti.atomic_max(max_velocity, v_max)
     return max_velocity
 
@@ -117,7 +118,7 @@ def solve(cnt, fems, log=True):
 
         max_grid_v = computeMaxGridV(grid_v)
         cfl_dt = allowed_cfl * dx / (max_grid_v + 1e-6)
-        dt0 = min(dt, cfl_dt, frame_time_left)   
+        dt0 = ti.min(dt, cfl_dt, frame_time_left)   
         frame_time_left -= dt0
 
         grid.deactivate_all()

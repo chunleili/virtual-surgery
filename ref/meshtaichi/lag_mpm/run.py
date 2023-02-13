@@ -84,7 +84,7 @@ camera.lookat(0.16166008, -0.36196312,  0.02653955)
 
 frame = 0
 paused = ti.field(int, shape=())
-paused[None] = 1
+# paused[None] = 1
 
 while window.running:
 

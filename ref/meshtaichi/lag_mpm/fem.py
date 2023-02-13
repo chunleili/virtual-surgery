@@ -30,12 +30,12 @@ class FEM():
         self.block.dynamic(ti.axes(3), 1024 * 1024, chunk_size=leaf_block_size**3 * 8).place(self.pid)
 
         self.precomputeTetMat(self.mesh)
-        self.initColor(self.mesh)
+    #     self.initColor(self.mesh)
     
-    @ti.kernel
-    def initColor(self, mesh : ti.template()):
-        for v in mesh.verts:
-            self.color[v.id] = get_color(self.x[v.id][2] / 2.0) # Red -> Blue
+    # @ti.kernel
+    # def initColor(self, mesh : ti.template()):
+    #     for v in mesh.verts:
+    #         self.color[v.id] = get_color(self.x[v.id][2] / 2.0) # Red -> Blue
     
     @ti.kernel
     def precomputeTetMat(self, mesh : ti.template()):

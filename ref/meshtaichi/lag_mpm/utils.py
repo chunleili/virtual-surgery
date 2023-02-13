@@ -29,7 +29,7 @@ def rgb_to_FF(c):
 
 @ti.func
 def get_color(x):
-    r_s = min(int(x * (len(__palette__) - 1)), len(__palette__) - 2)
+    r_s = ti.min(int(x * (len(__palette__) - 1)), len(__palette__) - 2)
     r_e = r_s + 1
     val = x * (len(__palette__) - 1) - r_s
     s_c = FF_to_rgb(palette[r_s])
