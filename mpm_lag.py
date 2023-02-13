@@ -6,8 +6,8 @@ ti.init(arch=ti.gpu)
 
 dim = 2
 quality = 1  # Use a larger integral number for higher quality
-n_particle_x = 3 * quality
-n_particle_y = 2 * quality
+n_particle_x = 100 * quality
+n_particle_y = 8 * quality
 n_particles = n_particle_x * n_particle_y
 n_elements = (n_particle_x - 1) * (n_particle_y - 1) * 2
 n_grid = 64 * quality

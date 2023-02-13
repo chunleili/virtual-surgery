@@ -18,17 +18,13 @@ def parse_args():
 
 args = parse_args()
 
-if not args.test:
-    ti.init(arch=ti.cuda, device_memory_GB=4.0)
-
-    os.makedirs(args.output + "/armadillo", exist_ok=True)
-    os.makedirs(args.output + "/particles", exist_ok=True)
-else:
-    ti.init(arch=getattr(ti, args.arch), random_seed=0)
+os.makedirs(args.output + "/armadillo", exist_ok=True)
+os.makedirs(args.output + "/particles", exist_ok=True)
+ti.init(arch=getattr(ti, args.arch), random_seed=0)
 
 from fem import *
 
-model_size = 0.10
+model_size = 0.1
 
 fems, models = [], []
 
@@ -76,7 +72,6 @@ camera.fov(75)
 frame = 0
 paused = ti.field(int, shape=())
 while window.running:
-    # print(len(mesh.verts.size))
 
     for e in window.get_events(ti.ui.PRESS):
         if e.key == ti.ui.SPACE:
