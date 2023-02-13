@@ -32,12 +32,11 @@ def init(x, y, i):
     # model = Patcher.load_mesh_rawdata("./models/armadillo0/armadillo0.1.node")
     model = Patcher.load_mesh_rawdata("./models/skin2_surf.1.node")
     # model[0] = transform(model[0], model_size, [x, y, 0.05 + (model_size / 2 + 0.012) * i])
-    model[0] = transform(model[0], model_size, [x, y, 0.05 + (model_size / 2 + 0.012) * i])
+    model[0] = transform(model[0], model_size, [x,y,i])
     models.append(model)
 
 
-init(0.5, 0.0, 0)
-# init(0.5, 0.5, 0)
+init(0.5, 0.0, 1.0)
 
 
 skin = Patcher.load_mesh(models, relations=["CV"])
