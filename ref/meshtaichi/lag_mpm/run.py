@@ -24,42 +24,52 @@ args = parse_args()
 ti.init(arch=getattr(ti, args.arch), random_seed=0, device_memory_GB=4)
 from fem import *
 
-model_size = 0.5
+
 fems, models = [], []
 
 def transform(verts, scale, offset): return verts / max(verts.max(0) - verts.min(0)) * scale + offset
 def init(x, y, i):
+    # #armadillo
     # model = Patcher.load_mesh_rawdata("./models/armadillo0/armadillo0.1.node")
-    model = Patcher.load_mesh_rawdata("./models/skin.1.node")
     # model[0] = transform(model[0], model_size, [x, y, 0.05 + (model_size / 2 + 0.012) * i])
-    # model[0] = transform(model[0], model_size, [x,y,i])
+
+    model = Patcher.load_mesh_rawdata("./models/skin.1.node")
+
     models.append(model)
 
+# #armadillo TODO:
+# model_size = 0.1 
+# init(0.5, 0.5, 0)
+# armadillo = Patcher.load_mesh(models, relations=["CV"])
+# fems.append(FEM(armadillo))
 
+model_size = 0.5
 init(0.5, 0.0, 1.0)
-
-
 skin = Patcher.load_mesh(models, relations=["CV"])
 fems.append(FEM(skin))
 
 
-ground_model = "models/ground.obj"
-ground = Patcher.load_mesh(ground_model, relations=["FV"])
-ground.verts.place({'x' : ti.math.vec3})
-ground.verts.x.from_numpy(ground.get_position_as_numpy())
-
-
-ground_indices = ti.field(ti.i32, shape = len(ground.faces) * 3)
 @ti.kernel
 def init_indices_surf(mesh: ti.template(), indices: ti.template()):
     for f in mesh.faces:
         for j in ti.static(range(3)):
            indices[f.id * 3 + j] = f.verts[j].id
 
+ground_model = "models/ground.obj"
+ground = Patcher.load_mesh(ground_model, relations=["FV"])
+ground_indices = ti.field(ti.i32, shape = len(ground.faces) * 3)
+ground.verts.place({'x' : ti.math.vec3})
+ground.verts.x.from_numpy(ground.get_position_as_numpy())
 init_indices_surf(ground, ground_indices)
 
+coord_model = "models/coord.obj"
+coord = Patcher.load_mesh(coord_model, relations=["FV"])
+coord.verts.place({'x' : ti.math.vec3})
+coord.verts.x.from_numpy(coord.get_position_as_numpy())
+coord_indices = ti.field(ti.i32, shape = len(coord.faces) * 3)
+init_indices_surf(coord, coord_indices)
 
-skin_indices = ti.field(ti.u32, shape = len(skin.cells) * 4 * 3)
+
 @ti.kernel
 def init_indices_tet(mesh: ti.template(), indices: ti.template()):
     for c in mesh.cells:
@@ -68,6 +78,10 @@ def init_indices_tet(mesh: ti.template(), indices: ti.template()):
             for j in ti.static(range(3)):
                 indices[(c.id * 4 + i) * 3 + j] = c.verts[ind[i][j]].id
 
+# armadillo_indices = ti.field(ti.u32, shape = len(armadillo.cells) * 4 * 3)
+# init_indices_tet(armadillo, armadillo_indices)
+
+skin_indices = ti.field(ti.u32, shape = len(skin.cells) * 4 * 3)
 init_indices_tet(skin, skin_indices)
 
 
@@ -75,17 +89,16 @@ window = ti.ui.Window("virtual surgery", (1920, 1080))
 canvas = window.get_canvas()
 scene = ti.ui.Scene()
 camera = ti.ui.Camera()
-# camera.position(0.7,0.7,0.1)
 camera.up(0, 1, 0)
-# camera.lookat(0, 0, 0)
 camera.fov(75)
-camera.position(0.86237168, 0.35118391, 0.04714442)
-camera.lookat(0.16166008, -0.36196312,  0.02653955)
+camera.position(0.7,0.7,0.1)
+camera.lookat(0, 0, 0)
+camera.fov(75)
+
 
 frame = 0
 paused = ti.field(int, shape=())
-# paused[None] = 1
-
+paused[None] = 1
 while window.running:
 
     for e in window.get_events(ti.ui.PRESS):
@@ -104,7 +117,11 @@ while window.running:
     
     scene.particles(fems[0].x, 1e-4, color = (0.5, 0.5, 0.5))
     scene.mesh(ground.verts.x, ground_indices, color = (0.5,0.5,0.5))
+    scene.mesh(coord.verts.x, coord_indices, color = (0.5,0.5,0.5))
+
     scene.mesh(fems[0].x, skin_indices, color = (232/255, 190/255, 172/255))
+    
+    # scene.mesh(fems[0].x, armadillo_indices, color = (232/255, 190/255, 172/255))#armadillo
 
     scene.point_light(pos=(0.5, 1.5, 0.5), color=(1, 1, 1))
     scene.ambient_light((0.2,0.2,0.2))
