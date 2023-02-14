@@ -1,16 +1,17 @@
 import taichi as ti
 
-# frame_dt = 1.5e-2
 frame_dt = 1.5e-2
 dt = 5e-4
 allowed_cfl = 0.8
 gravity = 10.0
 
-n_grid = (256, 256, 512)
+# n_grid = (256, 256, 512)
+n_grid = (64, 64, 64)
 dx = 1.0 / n_grid[0]
 dx_inv = 1.0 / dx
 
-grid_block_size = 128
+# grid_block_size = 128
+grid_block_size = 32
 leaf_block_size = 4
 grid_v = ti.Vector.field(3, dtype = ti.f32)
 grid_m = ti.field(ti.f32)
@@ -112,7 +113,8 @@ def g2p(fem : ti.template(), dt : ti.f32, pid : ti.template()):
 def solve(cnt, fems, log=True):
     frame_time_left = frame_dt
     substep = 0
-    while frame_time_left > 0.0:
+    # while frame_time_left > 0.0: 
+    if(True):#DEBUG
         # if log: print(f"substep: {substep}")
         substep += 1
 
