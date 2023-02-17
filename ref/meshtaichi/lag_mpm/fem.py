@@ -31,6 +31,15 @@ class FEM():
 
         self.precomputeTetMat(self.mesh)
     #     self.initColor(self.mesh)
+
+        self.cp = ti.field(ti.i32, shape=()) #控制点的id
+        self.x_show = ti.Vector.field(3, ti.f32, shape=(3)) #展示的红点 也就是控制点
+        self.keyboard_move = ti.Vector.field(3, ti.f32, shape=()) #键盘控制的移动
+        self.cp_pos = ti.Vector.field(3, ti.f32, shape=()) #控制点的位置
+        self.force_strength = ti.field(ti.f32, shape=())
+
+        self.force_strength[None] = 5e3
+        self.cp = 20187
     
     # @ti.kernel
     # def initColor(self, mesh : ti.template()):

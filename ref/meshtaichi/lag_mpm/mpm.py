@@ -25,7 +25,7 @@ block_component(grid_m)
 for d in range(3):
     block_component(grid_v.get_scalar_field(d))
 
-fraction = 1.0
+fraction = 0.0
 
 @ti.kernel
 def buildPid(fem : ti.template(), pid : ti.template()):
@@ -59,7 +59,7 @@ def p2g(fem : ti.template(), dt : ti.f32, pid : ti.template()):
 
 bound = 3
 @ti.kernel
-def gridOp(dt : ti.f32):
+def gridOp(fem : ti.template(), dt : ti.f32):
     v_allowed = dx * allowed_cfl / dt
     for I in ti.grouped(grid_m):
         mass = grid_m[I]
@@ -73,6 +73,14 @@ def gridOp(dt : ti.f32):
             if (I[x] < bound and grid_v[I][x] < 0.0) or (I[x] > n_grid[x] - bound and grid_v[I][x] > 0.0): 
                 grid_v[I][x] = 0.0
                 grid_v[I] *= fraction
+
+    base = (fem.x[fem.cp] * dx_inv - 0.5).cast(int)
+    for i, j, k in ti.static(ti.ndrange(3, 3, 3)):
+        offset = ti.Vector([i, j, k])
+        dist = fem.cp_pos[None] - dx * (base + offset)
+        # if dist.norm() < 0.2:
+        grid_v[base + offset] += dist / (0.01 + dist.norm()) * dt * fem.force_strength[None]
+
 
 @ti.kernel
 def computeMaxGridV(grid_v : ti.template()) -> ti.f32:
@@ -124,14 +132,14 @@ def solve(cnt, fems, log=True):
         frame_time_left -= dt0
 
         grid.deactivate_all()
-        for i in range(cnt):
+        for i in range(cnt):    #cnt=1
             fems[i].grid.deactivate_all()
             buildPid(fems[i], fems[i].pid)
             fems[i].f.fill(0.0)
             fems[i].computeForce(fems[i].mesh)
             p2g(fems[i], dt0, fems[i].pid)
 
-        gridOp(dt0)
+        gridOp(fems[i], dt0)
 
         for i in range(cnt):
             g2p(fems[i], dt0, fems[i].pid)

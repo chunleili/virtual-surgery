@@ -24,28 +24,54 @@ args = parse_args()
 ti.init(arch=getattr(ti, args.arch), random_seed=0, device_memory_GB=4)
 from fem import *
 
+is_aramdillo = False
+is_skin = True
 
 fems, models = [], []
 
 def transform(verts, scale, offset): return verts / max(verts.max(0) - verts.min(0)) * scale + offset
+# def scale_model_to_01(verts): 
+#     bbox_min, bbox_max = find_bbox(verts)
+#     print("bbox_min: ", bbox_min)
+#     print("bbox_max: ", bbox_max)
+#     # 缩放至最大bbox边长为0.8
+#     max_scale = max(bbox_max - bbox_min)
+#     print("max_scale: ", max_scale)
+#     sclae_factor = 0.8 / max_scale 
+#     verts *= sclae_factor
+#     # 平移至每一个bbox在0.1-0.9范围内
+#     bbox_min_new, bbox_max_new = find_bbox(verts)
+#     print("bbox_min_new: ", bbox_min_new)
+#     print("bbox_max_new: ", bbox_max_new)
+#     verts += (0.1 - bbox_min_new)
+#     return verts
+
+# def find_bbox(verts):
+#     min_x, min_y, min_z = np.min(verts, axis=0)
+#     max_x, max_y, max_z = np.max(verts, axis=0)
+#     return np.array([min_x, min_y, min_z]), np.array([max_x, max_y, max_z])
+
 def init(x, y, i):
     # #armadillo
-    # model = Patcher.load_mesh_rawdata("./models/armadillo0/armadillo0.1.node")
-    # model[0] = transform(model[0], model_size, [x, y, 0.05 + (model_size / 2 + 0.012) * i])
-
-    model = Patcher.load_mesh_rawdata("./models/skin/skin3.1.node")
-
+    if(is_aramdillo):
+        model = Patcher.load_mesh_rawdata("./models/armadillo0/armadillo0.1.node")
+        model[0] = transform(model[0], model_size, [x, y, 0.05 + (model_size / 2 + 0.012) * i])
+    if(is_skin):
+        model = Patcher.load_mesh_rawdata("./models/skin/skin3.1.node")
+        # model[0] = scale_modtiel_to_01(model[0])
     models.append(model)
 
 # #armadillo TODO:
-# model_size = 0.1 
-# init(0.5, 0.5, 0)
-# armadillo = Patcher.load_mesh(models, relations=["CV"])
-# fems.append(FEM(armadillo))
+if(is_aramdillo):
+    model_size = 0.1 
+    init(0.5, 0.5, 0)
+    armadillo = Patcher.load_mesh(models, relations=["CV"])
+    fems.append(FEM(armadillo))
 
-init(0,0,0)
-skin = Patcher.load_mesh(models, relations=["CV"])
-fems.append(FEM(skin))
+if(is_skin):
+    init(0,0,0)
+    skin = Patcher.load_mesh(models, relations=["CV"])
+    fems.append(FEM(skin))
 
 
 @ti.kernel
@@ -77,54 +103,127 @@ def init_indices_tet(mesh: ti.template(), indices: ti.template()):
             for j in ti.static(range(3)):
                 indices[(c.id * 4 + i) * 3 + j] = c.verts[ind[i][j]].id
 
-# armadillo_indices = ti.field(ti.u32, shape = len(armadillo.cells) * 4 * 3)
-# init_indices_tet(armadillo, armadillo_indices)
+if(is_aramdillo):
+    armadillo_indices = ti.field(ti.u32, shape = len(armadillo.cells) * 4 * 3)
+    init_indices_tet(armadillo, armadillo_indices)
 
-skin_indices = ti.field(ti.u32, shape = len(skin.cells) * 4 * 3)
-init_indices_tet(skin, skin_indices)
+if(is_skin):
+    skin_indices = ti.field(ti.u32, shape = len(skin.cells) * 4 * 3)
+    init_indices_tet(skin, skin_indices)
+
+
+cp1 = 20187
+cp2 = 15948
+#AD-HOC: 现在先直接通过tetview手动看出来控制点的编号，然后update它
+@ti.kernel
+def init_cp_pos():
+    fems[0].x_show[0] = fems[0].x[cp1]
+    fems[0].x_show[1] = fems[0].x[cp2]
+    fems[0].x_show[2] = fems[0].x[cp1]
+    fems[0].cp_pos[None] = fems[0].x[cp1]
+
+@ti.kernel
+def update_cp_pos():
+    fems[0].x_show[0] = fems[0].x[cp1]
+    fems[0].x_show[1] = fems[0].x[cp2]
+    fems[0].cp_pos[None] += fems[0].keyboard_move[None] * 0.001
+    if fems[0].cp_pos[None][1] > 0.9:
+        fems[0].cp_pos[None][1] = 0.9
+    fems[0].x_show[2] = fems[0].cp_pos[None]
 
 
 window = ti.ui.Window("virtual surgery", (1920, 1080))
+gui = window.get_gui()
 canvas = window.get_canvas()
 scene = ti.ui.Scene()
 camera = ti.ui.Camera()
 camera.up(0, 1, 0)
 camera.fov(75)
 camera.position(0.7,0.7,0.1)
-camera.lookat(0, 0, 0)
+# camera.lookat(0, 0, 0)
+camera.lookat(0.22261054, -0.13069095,  0.52133713)
 camera.fov(75)
 
 
 frame = 0
 paused = ti.field(int, shape=())
-paused[None] = 1
+paused[None] = 0
+init_cp_pos()
 while window.running:
-
+    # user controlling of control points
+    fems[0].keyboard_move[None] = ti.Vector([0.0, 0.0, 0.0])
     for e in window.get_events(ti.ui.PRESS):
         if e.key == ti.ui.SPACE:
             paused[None] = not paused[None]
             print("paused:", paused[None])
+        if e.key == ti.ui.ESCAPE:
+            exit()
+    
+    cp_move_speed = 5
+    if window.is_pressed(ti.ui.CTRL and "j"):#left x
+        fems[0].keyboard_move[None][0] = -cp_move_speed
+    elif window.is_pressed(ti.ui.CTRL and "l"):#right x
+        fems[0].keyboard_move[None][0] = cp_move_speed
+    elif window.is_pressed(ti.ui.CTRL and "i"):#up y
+        fems[0].keyboard_move[None][1] = cp_move_speed
+    elif window.is_pressed(ti.ui.CTRL and "k"):#down y
+        fems[0].keyboard_move[None][1] = -cp_move_speed
+    elif window.is_pressed(ti.ui.CTRL and "u"):#forward z
+        fems[0].keyboard_move[None][2] = cp_move_speed
+    elif window.is_pressed(ti.ui.CTRL and "o"):#backward z
+        fems[0].keyboard_move[None][2] = -cp_move_speed
+
+    if window.is_pressed(ti.ui.CTRL and "+"):#backward z
+        fems[0].force_strength[None] += 10
+    if window.is_pressed(ti.ui.CTRL and "-"):#backward z
+        fems[0].force_strength[None] -= 10
+
     if not paused[None]:
         solve(1, fems)
-        print(f"frame: {frame}")
+        update_cp_pos()
+
+        # print(f"frame: {frame}")
         frame += 1
     # print("camera.curr_position",camera.curr_position)
     # print("camera.curr_lookat",camera.curr_lookat)
 
-    camera.track_user_inputs(window, movement_speed=0.0005, hold_key=ti.ui.RMB)
+    camera.track_user_inputs(window, movement_speed=0.005, hold_key=ti.ui.RMB)
     scene.set_camera(camera)
     
     scene.particles(fems[0].x, 1e-4, color = (0.5, 0.5, 0.5))
+    scene.particles(fems[0].x_show, 1e-2, color = (1, 0, 0)) #控制点
     scene.mesh(ground.verts.x, ground_indices, color = (0.5,0.5,0.5))
     scene.mesh(coord.verts.x, coord_indices, color = (0.5,0.5,0.5))
 
-    scene.mesh(fems[0].x, skin_indices, color = (232/255, 190/255, 172/255))
-    
-    # scene.mesh(fems[0].x, armadillo_indices, color = (232/255, 190/255, 172/255))#armadillo
+    if(is_skin):
+        scene.mesh(fems[0].x, skin_indices, color = (232/255, 190/255, 172/255))
+    if(is_aramdillo):
+        scene.mesh(fems[0].x, armadillo_indices, color = (232/255, 190/255, 172/255))#armadillo
 
     scene.point_light(pos=(0.5, 1.5, 0.5), color=(1, 1, 1))
     scene.ambient_light((0.2,0.2,0.2))
 
     canvas.scene(scene)
 
+    # 加一个选项窗口
+    with gui.sub_window("Options", 0, 0, 0.25, 0.3) as w:
+        gui.text("w/a/s/d/q/e to move camera")
+        gui.text("press ctrl + j/l/i/k/u/o to move control point")
+        gui.text("press ctrl + +/- to change force strength")
+        gui.text("press space to pause/continue")
+        fems[0].force_strength[None] = gui.slider_float("force_strength", fems[0].force_strength[None], 0, 1e4)
+
+        gui.text("frame: " + str(frame))
+        gui.text("camera.curr_position: " + str(camera.curr_position))
+        gui.text("camera.curr_lookat: " + str(camera.curr_lookat))
+        gui.text("control point id: " + str(fems[0].cp))
+        gui.text("control point pos: " + str(fems[0].cp_pos[None]))
+        if paused[None]:
+            gui.text("paused")
+        # w.button("exit", exit)
+        switch = gui.button("switch control point")
+        if switch and fems[0].cp == cp1:
+            fems[0].cp = cp2
+        elif switch and fems[0].cp == cp2:
+            fems[0].cp = cp1
     window.show()
