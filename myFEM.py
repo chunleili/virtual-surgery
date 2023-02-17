@@ -6,6 +6,9 @@ import numpy as np
 ti.init(arch=ti.cpu, debug=True)
 
 dim=2
+# n_particle_x = 2
+# n_particle_y = 1
+# n_particles = n_particle_x * n_particle_y
 n_particles = 3
 n_elements = 1
 dt = 1e-4
@@ -20,33 +23,54 @@ S = ti.Matrix.field(n=dim, m=dim, dtype=float, shape=n_elements) #Second Piola K
 F = ti.Matrix.field(n=dim, m=dim, dtype=float, shape=n_elements) #deformation gradient
 G = ti.Matrix.field(n=dim, m=dim, dtype=float, shape=n_elements) #green strain
 
+Dm_inv = ti.Matrix.field(n=dim, m=dim, dtype=float, shape=n_elements) 
+Ds = ti.Matrix.field(n=dim, m=dim, dtype=float, shape=n_elements) 
+vertices = ti.Vector.field(3, dtype=ti.i32, shape=(n_elements))
+area = ti.field(float, shape=n_elements)
 
 @ti.kernel
-def init():
+def initialize():
     X[0] = [0.5, 0.5]
     X[1] = [0.5, 0.6]
     X[2] = [0.6, 0.5]
+    # X[3] = [0.6, 0.6]
 
     for i in x:
         x[i] = X[i]
-    x[0] += [0, 0.01]
+    # x[0] += [0, 0.01]
 
+    vertices[0] = [0, 1, 2]
+    # vertices[1] = [1, 3, 2]
 
-Dm_inv = ti.Matrix.field(n=dim, m=dim, dtype=float, shape=n_elements) 
+    # material space shape matrix
+    for i in range(n_elements):
+        Dm = compute_shape_matrix(i,X)
+        Dm_inv[i] = Dm.inverse()
+        ii0 = vertices[i][0]
+        ii1 = vertices[i][1]
+        ii2 = vertices[i][2]
+        area[i] = ti.abs((X[ii2] - X[ii0]).cross(X[ii1] - X[ii0])) / 2 
 
 
 def substep():
     compute_force()
     time_integration()
 
+@ti.func
+def compute_shape_matrix(i, x_:ti.template()):
+    ii0 = vertices[i][0]
+    ii1 = vertices[i][1]
+    ii2 = vertices[i][2]
+    return  ti.Matrix([[x_[ii1][0]-x_[ii0][0], x_[ii2][0]-x_[ii0][0]],
+                       [x_[ii1][1]-x_[ii0][1], x_[ii2][1]-x_[ii0][1]]])
+
 @ti.kernel
 def compute_force():
     #compute deformation gradient
     for i in range(n_elements):
-        Dm =ti.Matrix([[x[1][0]-x[0][0], x[2][0]-x[0][0]], [x[1][1]-x[0][1], x[2][1]-x[0][1]]])
-        Dm_inv[i] = Dm.inverse()
-        Ds = ti.Matrix([[X[1][0]-X[0][0], X[2][0]-X[0][0]], [X[1][1]-X[0][1], X[2][1]-X[0][1]]])
-        F[i] = Ds @ Dm_inv[i]
+        Ds[i] = compute_shape_matrix(i,x)
+        F[i] = Ds[i] @ Dm_inv[i]
+        print(F[i])
 
     #compute green strain
     for i in range(n_elements):
@@ -58,14 +82,13 @@ def compute_force():
 
     #compute force(先暂且就计算一个三角形的力，后面再考虑多个三角形的情况)
     for i in range(n_elements):
-        ii0 = 3 * i + 0
-        ii1 = 3 * i + 1
-        ii2 = 3 * i + 2
-        area = ti.abs((X[ii2] - X[ii0]).cross(X[ii1] - X[ii0])) / 2 
-        force_matrix =  F[i] @ S[i] @ Dm_inv[i].transpose() * area
+        ii0 = vertices[i][0]
+        ii1 = vertices[i][1]
+        ii2 = vertices[i][2]
+        force_matrix =  F[i] @ S[i] @ Dm_inv[i].transpose() * area[i]
         force[ii1] = ti.Vector([force_matrix[0, 0], force_matrix[1, 0]])
         force[ii2] = ti.Vector([force_matrix[0, 1], force_matrix[1, 1]])
-        force[ii0] = -force[ii1] - force[ii2] 
+        force[ii0] = -force[ii1] - force[ii2]
 
     #gravity
     for i in range(n_particles):
@@ -92,26 +115,40 @@ def BC(i,x_prev):
             vel[i][j] = 0  
             x[i] = x_prev
 
+window = ti.ui.Window("MPM", (500, 500))
+canvas = window.get_canvas()
+gui = window.get_gui()
+paused = ti.field(int, shape=())
+paused[None] = 1
+
+line_ind = ti.field(int, shape=(n_elements * 3 *2))
+def compute_ind():
+    vertices_ = vertices.to_numpy()
+    a = vertices_.reshape(n_elements * 3)
+    b = np.roll(vertices_, shift=1, axis=1).reshape(n_elements * 3)
+    line_ind_ = np.stack([a, b], axis=1).flatten()
+    print(line_ind_)
+    line_ind.from_numpy(line_ind_)
 
 def main():
-    init()
-    gui = ti.GUI('my', (1024, 1024))
-    while gui.running:
-        for e in gui.get_events():
-            if e.key == gui.ESCAPE:
-                gui.running = False
-            elif e.key == 'r':
-                init()
-        for i in range(30):
-            substep()
+    initialize()
+
+    compute_ind()
+
+    while window.running:
+        for e in window.get_events(ti.ui.PRESS):
+            if e.key == ti.ui.SPACE:
+                paused[None] = not paused[None]
+            if e.key == "s":
+                substep()
+                print("substep")
+        if not paused[None]:
+            for s in range(30):
+                substep()
         
-        vertices_ = np.array([[0, 1, 2]], dtype=np.int32)
-        particle_pos = x.to_numpy()
-        a = vertices_.reshape(n_elements * 3)
-        b = np.roll(vertices_, shift=1, axis=1).reshape(n_elements * 3)
-        gui.lines(particle_pos[a], particle_pos[b], radius=1, color=0x4FB99F)
-        gui.circles(particle_pos, radius=5, color=0xF2B134)
-        gui.show()
+        canvas.lines(x,width=0.001,indices=line_ind, color=(79/255,185/255,159/255))
+        canvas.circles(x,radius=0.005,color=(1,1,0))
+        window.show()
 
 if __name__ == '__main__':
     main()
