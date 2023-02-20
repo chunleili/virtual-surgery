@@ -40,7 +40,7 @@ class FEM():
         self.cp_user = ti.Vector.field(3, ti.f32, shape=(2)) #从外界导入的控制点的路径
 
         self.force_strength[None] = 10e3
-        self.cp_id = 20187
+        # self.cp_id = 20187
     
     # @ti.kernel
     # def initColor(self, mesh : ti.template()):
