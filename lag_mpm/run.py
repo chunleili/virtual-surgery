@@ -119,8 +119,8 @@ coord_indices = ti.field(ti.i32, shape = len(coord.faces) * 3)
 init_indices_surf(coord, coord_indices)
 
 
-cp1 = 20187
-cp2 = 15948
+cp1 = 15948
+cp2 = 20187
 #AD-HOC: 现在先直接通过tetview手动看出来控制点的编号，然后update它
 # @ti.kernel
 def init_cp_pos():
@@ -130,14 +130,14 @@ def init_cp_pos():
 
 def read_animation():
     ply_path = "D:/Dev/virtual-surgery/models/control_points/CP12_"
-    plys = read_ply.read_ply(ply_path, start=1, stop=201)
+    plys = read_ply.read_ply(ply_path, start=30, stop=201)
     return plys
     
 
 def copy_cp(frame,plys):
     # print(f"{frame} frame, {plys[frame].shape}")
-    if(frame < len(plys)):
-        fems[0].cp_user.from_numpy(plys[frame])
+    if(frame < len(plys) and frame % 3 == 0):
+        fems[0].cp_user.from_numpy(plys[frame//3])
         fems[0].cp_attractor[0] = fems[0].cp_user[0] #用导入动画的点控制attractor
         fems[0].cp_attractor[1] = fems[0].cp_user[1] 
 
