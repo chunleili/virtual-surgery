@@ -1,3 +1,4 @@
 *.ini
 a.lua
 ref/tiPBD
+__pycache__
