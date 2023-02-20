@@ -118,27 +118,24 @@ cp2 = 15948
 #AD-HOC: 现在先直接通过tetview手动看出来控制点的编号，然后update它
 # @ti.kernel
 def init_cp_pos():
-    fems[0].x_show[0] = fems[0].x[cp1]
-    fems[0].x_show[1] = fems[0].x[cp2]
-    fems[0].x_show[2] = fems[0].x[cp1]
-    fems[0].cp_pos[None] = fems[0].x[cp1]
+    fems[0].cp_on_skin[0] = fems[0].x[cp1]
+    fems[0].cp_on_skin[1] = fems[0].x[cp2]
+    fems[0].cp_attractor[None] = fems[0].x[cp1]
 
 ply_path = "D:/Dev/virtual-surgery/models/control_points/CP12_"
 plys = read_ply.read_ply(ply_path, start=1, stop=201)
 
 def copy_cp(frame):
     # print(f"{frame} frame, {plys[frame].shape}")
-    fems[0].cp_show.from_numpy(plys[frame])
+    if(frame < len(plys)):
+        fems[0].cp_user.from_numpy(plys[frame])
 
 
 @ti.kernel
 def update_cp_pos(frame:ti.i32):
-    fems[0].x_show[0] = fems[0].x[cp1]
-    fems[0].x_show[1] = fems[0].x[cp2]
-    fems[0].cp_pos[None] += fems[0].keyboard_move[None] * 0.001
-    if fems[0].cp_pos[None][1] > 0.9:
-        fems[0].cp_pos[None][1] = 0.9
-    fems[0].x_show[2] = fems[0].cp_pos[None]
+    fems[0].cp_on_skin[0] = fems[0].x[cp1]
+    fems[0].cp_on_skin[1] = fems[0].x[cp2]
+    fems[0].cp_attractor[None] += fems[0].keyboard_move[None] * 0.001 #user controlling
 
 
 
@@ -199,8 +196,8 @@ while window.running:
     scene.set_camera(camera)
     
     scene.particles(fems[0].x, 1e-4, color = (0.5, 0.5, 0.5))
-    scene.particles(fems[0].x_show, 1e-2, color = (1, 0, 0)) #控制点
-    scene.particles(fems[0].cp_show, 1e-2, color = (1, 1, 0))
+    scene.particles(fems[0].cp_on_skin, 1e-2, color = (1, 0, 0)) #在皮肤上的
+    scene.particles(fems[0].cp_user, 1e-2, color = (1, 1, 0)) # 导入的动画路径
     scene.mesh(ground.verts.x, ground_indices, color = (0.5,0.5,0.5))
     scene.mesh(coord.verts.x, coord_indices, color = (0.5,0.5,0.5))
 
@@ -226,7 +223,7 @@ while window.running:
         gui.text("camera.curr_position: " + str(camera.curr_position))
         gui.text("camera.curr_lookat: " + str(camera.curr_lookat))
         gui.text("control point id: " + str(fems[0].cp_id))
-        gui.text("control point pos: " + str(fems[0].cp_pos[None]))
+        gui.text("cp attractor pos: " + str(fems[0].cp_attractor[None]))
         if paused[None]:
             gui.text("paused")
         switch = gui.button("switch control point")
@@ -234,4 +231,7 @@ while window.running:
             fems[0].cp_id = cp2
         elif switch and fems[0].cp_id == cp2:
             fems[0].cp_id = cp1
+
+    if frame == len(plys)-1:
+        paused[None] = 1
     window.show()

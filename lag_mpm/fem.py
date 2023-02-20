@@ -33,12 +33,11 @@ class FEM():
     #     self.initColor(self.mesh)
 
         self.cp_id = ti.field(ti.i32, shape=()) #控制点的id
-        self.x_show = ti.Vector.field(3, ti.f32, shape=(3)) #展示的红点 也就是控制点
+        self.cp_on_skin = ti.Vector.field(3, ti.f32, shape=(2)) #在皮上的红点
         self.keyboard_move = ti.Vector.field(3, ti.f32, shape=()) #键盘控制的移动
-        self.cp_pos = ti.Vector.field(3, ti.f32, shape=()) #控制点的位置
+        self.cp_attractor = ti.Vector.field(3, ti.f32, shape=()) #控制点引力中心的位置
         self.force_strength = ti.field(ti.f32, shape=())
-        
-        self.cp_show = ti.Vector.field(3, ti.f32, shape=(2)) 
+        self.cp_user = ti.Vector.field(3, ti.f32, shape=(2)) #从外界导入的控制点的路径
 
         self.force_strength[None] = 5e3
         self.cp_id = 20187
