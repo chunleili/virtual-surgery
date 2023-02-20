@@ -74,13 +74,17 @@ def gridOp(fem : ti.template(), dt : ti.f32):
             if (I[x] < bound and grid_v[I][x] < 0.0) or (I[x] > n_grid[x] - bound and grid_v[I][x] > 0.0): 
                 grid_v[I][x] = 0.0
                 grid_v[I] *= fraction
-
+    
     base = (fem.x[fem.cp_id] * dx_inv - 0.5).cast(int)
     for i, j, k in ti.static(ti.ndrange(3, 3, 3)):
         offset = ti.Vector([i, j, k])
         dist = fem.cp_attractor[0] - dx * (base + offset)
         # if dist.norm() < 0.2:
         grid_v[base + offset] += dist / (0.01 + dist.norm()) * dt * fem.force_strength[None]
+
+    # base = (fem.x[fem.cp_id] * dx_inv - 0.5).cast(int)
+    # dist = fem.cp_attractor[0] - dx * (base)
+    # grid_v[base] += dist / (0.01 + dist.norm()) * dt * fem.force_strength[None]
 
 
 @ti.kernel
