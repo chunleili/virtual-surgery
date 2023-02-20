@@ -25,8 +25,6 @@ args = parse_args()
 ti.init(arch=getattr(ti, args.arch), random_seed=0, device_memory_GB=4)
 from fem import *
 
-is_aramdillo = False
-is_skin = True
 
 fems, models = [], []
 
@@ -52,27 +50,52 @@ def transform(verts, scale, offset): return verts / max(verts.max(0) - verts.min
 #     max_x, max_y, max_z = np.max(verts, axis=0)
 #     return np.array([min_x, min_y, min_z]), np.array([max_x, max_y, max_z])
 
-def init(x, y, i):
-    # #armadillo
-    if(is_aramdillo):
-        model = Patcher.load_mesh_rawdata("./models/armadillo0/armadillo0.1.node")
-        model[0] = transform(model[0], model_size, [x, y, 0.05 + (model_size / 2 + 0.012) * i])
-    if(is_skin):
-        model = Patcher.load_mesh_rawdata("./models/skin/skin3.1.node")
-        # model[0] = scale_modtiel_to_01(model[0])
-    models.append(model)
+is_aramdillo = False
+is_skin = True
+armadillo, skin = None, None
 
-# #armadillo TODO:
+def initialize():
+    global armadillo, skin
+    def init_mesh(x, y, i):
+        # #armadillo
+        if(is_aramdillo):
+            model = Patcher.load_mesh_rawdata("./models/armadillo0/armadillo0.1.node")
+            model[0] = transform(model[0], model_size, [x, y, 0.05 + (model_size / 2 + 0.012) * i])
+        if(is_skin):
+            model = Patcher.load_mesh_rawdata("./models/skin/skin3.1.node")
+            # model[0] = scale_modtiel_to_01(model[0])
+        models.append(model)
+
+    # #armadillo TODO:
+    if(is_aramdillo):
+        model_size = 0.1 
+        init_mesh(0.5, 0.5, 0)
+        armadillo = Patcher.load_mesh(models, relations=["CV"])
+        fems.append(FEM(armadillo))
+        
+    if(is_skin):
+        init_mesh(0,0,0)
+        skin = Patcher.load_mesh(models, relations=["CV"])
+        fems.append(FEM(skin))
+
+initialize()
+
+@ti.kernel
+def init_indices_tet(mesh: ti.template(), indices: ti.template()):
+    for c in mesh.cells:
+        ind = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]]
+        for i in ti.static(range(4)):
+            for j in ti.static(range(3)):
+                indices[(c.id * 4 + i) * 3 + j] = c.verts[ind[i][j]].id
+
 if(is_aramdillo):
-    model_size = 0.1 
-    init(0.5, 0.5, 0)
-    armadillo = Patcher.load_mesh(models, relations=["CV"])
-    fems.append(FEM(armadillo))
+    armadillo_indices = ti.field(ti.u32, shape = len(armadillo.cells) * 4 * 3)
+    init_indices_tet(armadillo, armadillo_indices)
 
 if(is_skin):
-    init(0,0,0)
-    skin = Patcher.load_mesh(models, relations=["CV"])
-    fems.append(FEM(skin))
+    skin_indices = ti.field(ti.u32, shape = len(skin.cells) * 4 * 3)
+    init_indices_tet(skin, skin_indices)
+
 
 
 @ti.kernel
@@ -96,23 +119,6 @@ coord_indices = ti.field(ti.i32, shape = len(coord.faces) * 3)
 init_indices_surf(coord, coord_indices)
 
 
-@ti.kernel
-def init_indices_tet(mesh: ti.template(), indices: ti.template()):
-    for c in mesh.cells:
-        ind = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]]
-        for i in ti.static(range(4)):
-            for j in ti.static(range(3)):
-                indices[(c.id * 4 + i) * 3 + j] = c.verts[ind[i][j]].id
-
-if(is_aramdillo):
-    armadillo_indices = ti.field(ti.u32, shape = len(armadillo.cells) * 4 * 3)
-    init_indices_tet(armadillo, armadillo_indices)
-
-if(is_skin):
-    skin_indices = ti.field(ti.u32, shape = len(skin.cells) * 4 * 3)
-    init_indices_tet(skin, skin_indices)
-
-
 cp1 = 20187
 cp2 = 15948
 #AD-HOC: 现在先直接通过tetview手动看出来控制点的编号，然后update它
@@ -120,7 +126,7 @@ cp2 = 15948
 def init_cp_pos():
     fems[0].cp_on_skin[0] = fems[0].x[cp1]
     fems[0].cp_on_skin[1] = fems[0].x[cp2]
-    fems[0].cp_attractor[None] = fems[0].x[cp1]
+    # fems[0].cp_attractor[0] = fems[0].x[cp1]
 
 ply_path = "D:/Dev/virtual-surgery/models/control_points/CP12_"
 plys = read_ply.read_ply(ply_path, start=1, stop=201)
@@ -129,13 +135,16 @@ def copy_cp(frame):
     # print(f"{frame} frame, {plys[frame].shape}")
     if(frame < len(plys)):
         fems[0].cp_user.from_numpy(plys[frame])
+        fems[0].cp_attractor[0] = fems[0].cp_user[0] #用导入动画的点控制attractor
+        fems[0].cp_attractor[1] = fems[0].cp_user[1] 
 
 
 @ti.kernel
 def update_cp_pos(frame:ti.i32):
-    fems[0].cp_on_skin[0] = fems[0].x[cp1]
-    fems[0].cp_on_skin[1] = fems[0].x[cp2]
-    fems[0].cp_attractor[None] += fems[0].keyboard_move[None] * 0.001 #user controlling
+    #cp_on_skin是用来显示的在皮上的红点, cp_attractor是实际计算中的引力中心，cp_user是用户控制或者导入动画的点
+    fems[0].cp_on_skin[0] = fems[0].x[cp1] 
+    fems[0].cp_on_skin[1] = fems[0].x[cp2] 
+    fems[0].cp_attractor[0] += fems[0].keyboard_move[None] * 0.001 #user controlling
 
 
 
@@ -161,11 +170,13 @@ while window.running:
     # user controlling of control points
     fems[0].keyboard_move[None] = ti.Vector([0.0, 0.0, 0.0])
     for e in window.get_events(ti.ui.PRESS):
+        if e.key == ti.ui.ESCAPE:
+            exit()
         if e.key == ti.ui.SPACE:
             paused[None] = not paused[None]
             print("paused:", paused[None])
-        if e.key == ti.ui.ESCAPE:
-            exit()
+        if e.key == "r":
+            initialize()
     
     cp_move_speed = 5
     if window.is_pressed("j"):#left x
@@ -195,9 +206,13 @@ while window.running:
     camera.track_user_inputs(window, movement_speed=0.005, hold_key=ti.ui.RMB)
     scene.set_camera(camera)
     
+    # cp_on_skin是用来显示的在皮上的红点
+    # cp_attractor是实际计算中的引力中心，
+    # cp_user是用户控制或者导入动画的点
     scene.particles(fems[0].x, 1e-4, color = (0.5, 0.5, 0.5))
     scene.particles(fems[0].cp_on_skin, 1e-2, color = (1, 0, 0)) #在皮肤上的
-    scene.particles(fems[0].cp_user, 1e-2, color = (1, 1, 0)) # 导入的动画路径
+    scene.particles(fems[0].cp_user, 1e-2, color = (1, 1, 0)) # 导入的动画/键盘控制的点
+    scene.particles(fems[0].cp_attractor, 1e-2, color = (0, 1, 0)) # 实际计算的点
     scene.mesh(ground.verts.x, ground_indices, color = (0.5,0.5,0.5))
     scene.mesh(coord.verts.x, coord_indices, color = (0.5,0.5,0.5))
 
@@ -223,7 +238,7 @@ while window.running:
         gui.text("camera.curr_position: " + str(camera.curr_position))
         gui.text("camera.curr_lookat: " + str(camera.curr_lookat))
         gui.text("control point id: " + str(fems[0].cp_id))
-        gui.text("cp attractor pos: " + str(fems[0].cp_attractor[None]))
+        gui.text("cp attractor pos: " + str(fems[0].cp_attractor[0]))
         if paused[None]:
             gui.text("paused")
         switch = gui.button("switch control point")

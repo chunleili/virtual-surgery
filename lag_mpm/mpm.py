@@ -78,7 +78,7 @@ def gridOp(fem : ti.template(), dt : ti.f32):
     base = (fem.x[fem.cp_id] * dx_inv - 0.5).cast(int)
     for i, j, k in ti.static(ti.ndrange(3, 3, 3)):
         offset = ti.Vector([i, j, k])
-        dist = fem.cp_attractor[None] - dx * (base + offset)
+        dist = fem.cp_attractor[0] - dx * (base + offset)
         # if dist.norm() < 0.2:
         grid_v[base + offset] += dist / (0.01 + dist.norm()) * dt * fem.force_strength[None]
 
