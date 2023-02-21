@@ -7,9 +7,10 @@ class FEM():
     def __init__(self, mesh):
         self.rho = 1e3
         self.E = 7e4 # Young's modulus
-        self.nu = 0.3 # Poisson's ratio: nu \in [0, 0.5)
+        self.nu = 0.03 # Poisson's ratio: nu \in [0, 0.5)
         self.mu = self.E / (2 * (1 + self.nu))
         self.la = self.E * self.nu / ((1 + self.nu) * (1 -2 * self.nu))
+        # self.la = 0.0
 
         self.x = ti.Vector.field(3, ti.f32, shape=len(mesh.verts))
         self.v = ti.Vector.field(3, ti.f32, shape=len(mesh.verts))
@@ -66,7 +67,8 @@ class FEM():
         U, sig, V = ti.svd(F, ti.f32)
         R = U @ V.transpose()
         J = F.determinant()
-        return 2 * u * (F - R) + l * (J - 1) * J * F.inverse().transpose()
+        # return 2 * u * (F - R) + l * (J - 1) * J * F.inverse().transpose()
+        return 2 * u * (F - R) + l * ((R.transpose() @ F).trace() - 3) *R 
 
     @ti.kernel
     def computeForce(self, mesh : ti.template()):
