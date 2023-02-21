@@ -10,11 +10,12 @@ n_particle_x = 100 * quality
 n_particle_y = 8 * quality
 n_particles = n_particle_x * n_particle_y
 n_elements = (n_particle_x - 1) * (n_particle_y - 1) * 2
-n_grid = 64 * quality
+n_grid = 640 * quality
 dx = 1 / n_grid
 inv_dx = 1 / dx
 dt = 1e-4 / quality
-E = 25000
+E = 250000
+# E = 2.5e7
 p_mass = 1
 p_vol = 1
 mu = 1
@@ -50,8 +51,8 @@ def initialize():
     for i in range(n_particle_x):
         for j in range(n_particle_y):
             t = mesh(i, j)
-            x[t] = [0.1 + i * dx * 0.5, 0.7 + j * dx * 0.5]
-            v[t] = [0, -1]
+            x[t] = [0.2 + i * 1.0/n_particle_x * 0.5, 0.1 + j * 1.0/n_particle_x * 0.5]
+            # v[t] = [0, -1]
 
     # build mesh
     for i in range(n_particle_x - 1):
@@ -113,10 +114,10 @@ def grid_op():
             grid_v[i, j].y -= dt * 9.8
 
             # center collision circle
-            dist = ti.Vector([i * dx - 0.5, j * dx - 0.5])
-            if dist.norm_sqr() < 0.005:
-                dist = dist.normalized()
-                grid_v[i, j] -= dist * ti.min(0, grid_v[i, j].dot(dist))
+            # dist = ti.Vector([i * dx - 0.5, j * dx - 0.5])
+            # if dist.norm_sqr() < 0.005:
+            #     dist = dist.normalized()
+            #     grid_v[i, j] -= dist * ti.min(0, grid_v[i, j].dot(dist))
 
             # box
             if i < bound and grid_v[i, j].x < 0:
