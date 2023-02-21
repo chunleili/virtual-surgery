@@ -1,30 +1,10 @@
-import os
 import taichi as ti
 import meshtaichi_patcher as Patcher
-import argparse
 import read_ply
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-o',
-                        '--output',
-                        type=str,
-                        default="./results/",
-                        help='Output Path')
-    parser.add_argument('--test', action='store_true', default=False)
-    parser.add_argument('--arch', default='cuda')
-    args = parser.parse_args()
-    return args
+ti.init(arch=ti.cuda, random_seed=0, device_memory_GB=4)
 
-
-args = parse_args()
-
-# os.makedirs(args.output + "/armadillo", exist_ok=True)
-# os.makedirs(args.output + "/particles", exist_ok=True)
-
-ti.init(arch=getattr(ti, args.arch), random_seed=0, device_memory_GB=4)
 from fem import *
-
 
 fems, models = [], []
 
@@ -50,8 +30,8 @@ def transform(verts, scale, offset): return verts / max(verts.max(0) - verts.min
 #     max_x, max_y, max_z = np.max(verts, axis=0)
 #     return np.array([min_x, min_y, min_z]), np.array([max_x, max_y, max_z])
 
-is_aramdillo = False
-is_skin = True
+is_aramdillo = True
+is_skin = False
 armadillo, skin = None, None
 
 def initialize():

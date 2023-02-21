@@ -1,6 +1,6 @@
 import taichi as ti
 from mpm import *
-from utils import *
+# from utils import *
 
 @ti.data_oriented
 class FEM():
