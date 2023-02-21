@@ -129,16 +129,16 @@ def init_cp_pos():
     fems[0].cp_on_skin[0] = fems[0].x[cp1]
     fems[0].cp_on_skin[1] = fems[0].x[cp2]
 
+anime_start_frame, anime_end_frame = 23, 200
 def read_animation():
     ply_path = "D:/Dev/virtual-surgery/models/control_points/CP12_"
-    plys = read_ply.read_ply(ply_path, start=30, stop=201)
+    plys = read_ply.read_ply(ply_path, start=anime_start_frame, stop=anime_end_frame+1)
     return plys
     
 
 def copy_cp(frame,plys):
-    # print(f"{frame} frame, {plys[frame].shape}")
-    if(frame < len(plys) and frame % 3 == 0):
-        fems[0].cp_user.from_numpy(plys[frame//3])
+    if(frame < len(plys)):
+        fems[0].cp_user.from_numpy(plys[frame])
         fems[0].cp_attractor[0] = fems[0].cp_user[0] #用导入动画的点控制attractor
         fems[0].cp_attractor[1] = fems[0].cp_user[1] 
 
@@ -148,7 +148,7 @@ def update_cp_pos(frame:ti.i32):
     #cp_on_skin是用来显示的在皮上的红点, cp_attractor是实际计算中的引力中心，cp_user是用户控制或者导入动画的点
     fems[0].cp_on_skin[0] = fems[0].x[cp1] 
     fems[0].cp_on_skin[1] = fems[0].x[cp2] 
-    fems[0].cp_attractor[0] += fems[0].keyboard_move[None] * 0.001 #user controlling
+    fems[0].cp_attractor[fems[0].cp_id[None]] += fems[0].keyboard_move[None]  #user controlling
 
 
 
@@ -174,6 +174,8 @@ if __name__ == "__main__":
     while window.running:
         # user controlling of control points
         fems[0].keyboard_move[None] = ti.Vector([0.0, 0.0, 0.0])
+        cp_move_speed = 5* 0.001
+
         for e in window.get_events(ti.ui.PRESS):
             if e.key == ti.ui.ESCAPE:
                 exit()
@@ -181,26 +183,23 @@ if __name__ == "__main__":
                 paused[None] = not paused[None]
                 print("paused:", paused[None])
             if e.key == "r":
-                initialize()
-        
-        cp_move_speed = 5
-        if window.is_pressed("j"):#left x
-            fems[0].keyboard_move[None][0] = -cp_move_speed
-        elif window.is_pressed("l"):#right x
-            fems[0].keyboard_move[None][0] = cp_move_speed
-        elif window.is_pressed("i"):#up y
+                frame = 1 #reload animation
+                
+        move_dir = (fems[0].cp_attractor[fems[0].cp_id[None]]) - camera.curr_position
+        if window.is_pressed("u"):#up y
             fems[0].keyboard_move[None][1] = cp_move_speed
-        elif window.is_pressed("k"):#down y
+        if window.is_pressed("o"):#down y
             fems[0].keyboard_move[None][1] = -cp_move_speed
-        elif window.is_pressed("u"):#forward z
-            fems[0].keyboard_move[None][2] = cp_move_speed
-        elif window.is_pressed("o"):#backward z
-            fems[0].keyboard_move[None][2] = -cp_move_speed
+        if window.is_pressed("j"):
+            fems[0].keyboard_move[None] = -cp_move_speed * move_dir.cross(camera.curr_up)
+        if window.is_pressed("l"):
+            fems[0].keyboard_move[None] = cp_move_speed * move_dir.cross(camera.curr_up)
+        if window.is_pressed("i"):
+            fems[0].keyboard_move[None] = cp_move_speed * move_dir
+        if window.is_pressed("k"):
+            fems[0].keyboard_move[None] = -cp_move_speed * move_dir
 
-        if window.is_pressed("+"):#backward z
-            fems[0].force_strength[None] += 10
-        if window.is_pressed("-"):#backward z
-            fems[0].force_strength[None] -= 10
+
 
         if not paused[None]:
             copy_cp(frame, plys)
@@ -217,7 +216,7 @@ if __name__ == "__main__":
         scene.particles(fems[0].x, 1e-4, color = (0.5, 0.5, 0.5))
         scene.particles(fems[0].cp_on_skin, 1e-2, color = (1, 0, 0)) #在皮肤上的
         scene.particles(fems[0].cp_user, 1e-2, color = (1, 1, 0)) # 导入的动画/键盘控制的点
-        scene.particles(fems[0].cp_attractor, 1e-2, color = (0, 1, 0)) # 实际计算的点
+        scene.particles(fems[0].cp_attractor, 1e-2, color = (0, 1, 0)) # 实际计算的点 绿色
         scene.mesh(ground.verts.x, ground_indices, color = (0.5,0.5,0.5))
         scene.mesh(coord.verts.x, coord_indices, color = (0.5,0.5,0.5))
 
@@ -235,23 +234,28 @@ if __name__ == "__main__":
         with gui.sub_window("Options", 0, 0, 0.25, 0.3) as w:
             gui.text("w/a/s/d/q/e to move camera")
             gui.text("press j/l/i/k/u/o to move control point")
-            gui.text("press +/- to change force strength")
             gui.text("press space to pause/continue")
-            fems[0].force_strength[None] = gui.slider_float("force_strength", fems[0].force_strength[None], 0, 1e4)
+            fems[0].force_strength[None] = gui.slider_float("force_strength", fems[0].force_strength[None], 0, 1e5)
 
             gui.text("frame: " + str(frame))
             gui.text("camera.curr_position: " + str(camera.curr_position))
             gui.text("camera.curr_lookat: " + str(camera.curr_lookat))
             gui.text("control point id: " + str(fems[0].cp_id))
-            gui.text("cp attractor pos: " + str(fems[0].cp_attractor[0]))
+            gui.text("cp attractor pos: " + str(fems[0].cp_attractor[fems[0].cp_id[None]]))
+            gui.text("attractor move dir: " + str(move_dir))
+            switch = gui.button("switch control point")
+            if switch and fems[0].cp_id[None] == 0:
+                fems[0].cp_id[None] = 1
+            elif switch and fems[0].cp_id[None] == 1:
+                fems[0].cp_id[None] = 0
+            if(gui.button("reload animation(r)")):
+                frame = 1
+            
+            if(gui.button("pause/continue(SPACE)")):
+                paused[None] = not paused[None]
             if paused[None]:
                 gui.text("paused")
-            switch = gui.button("switch control point")
-            if switch and fems[0].cp_id == cp1:
-                fems[0].cp_id = cp2
-            elif switch and fems[0].cp_id == cp2:
-                fems[0].cp_id = cp1
 
-        if frame == len(plys)-1:
+        if frame == anime_end_frame:
             paused[None] = 1
         window.show()

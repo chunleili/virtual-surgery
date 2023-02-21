@@ -76,14 +76,13 @@ def gridOp(fem : ti.template(), dt : ti.f32):
                 grid_v[I] *= fraction
 
     for ii in ti.static(range(2)):
-        # base = (fem.x[fem.cp_id] * dx_inv - 0.5).cast(int)
         base = (fem.cp_on_skin[ii] * dx_inv - 0.5).cast(int)
         for i, j, k in ti.static(ti.ndrange(3, 3, 3)):
             offset = ti.Vector([i, j, k])
             dist = fem.cp_attractor[ii] - dx * (base + offset)
-            # if dist.norm() < 0.2:
-            # grid_v[base + offset] += dist / (0.01 + dist.norm()) * dt * fem.force_strength[None]
-            grid_v[base + offset] += dist.norm() * dist / (0.01 + dist.norm()) * dt * fem.force_strength[None]
+            # grid_v[base + offset] += dist.norm() * dist / (0.01 + dist.norm()) * dt * fem.force_strength[None]
+            grid_v[base + offset] += 0.1 + dist * dt * fem.force_strength[None]
+            # print("dist * dt * fem.force_strength[None]", (dist * dt * fem.force_strength[None]).norm())
 
 
 @ti.kernel
