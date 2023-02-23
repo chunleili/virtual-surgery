@@ -30,8 +30,8 @@ def transform(verts, scale, offset): return verts / max(verts.max(0) - verts.min
 #     max_x, max_y, max_z = np.max(verts, axis=0)
 #     return np.array([min_x, min_y, min_z]), np.array([max_x, max_y, max_z])
 
-is_aramdillo = True
-is_skin = False
+is_aramdillo = False
+is_skin = True
 armadillo, skin = None, None
 
 def initialize():
