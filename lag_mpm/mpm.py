@@ -75,14 +75,12 @@ def gridOp(fem : ti.template(), dt : ti.f32):
                 grid_v[I][x] = 0.0
                 grid_v[I] *= fraction
 
-    for ii in (range(2)):
-        base = (fem.cp_on_skin[ii] * dx_inv - 0.5).cast(int)
-        for i, j, k in (ti.ndrange(3, 3, 3)):
-            offset = ti.Vector([i, j, k])
-            dist = fem.cp_attractor[ii] - dx * (base + offset)
-            # grid_v[base + offset] += dist.norm() * dist / (0.01 + dist.norm()) * dt * fem.force_strength[None]
-            grid_v[base + offset] += 0.1 + dist * dt * fem.force_strength[None]
-            # print("dist * dt * fem.force_strength[None]", (dist * dt * fem.force_strength[None]).norm())
+    # for ii in (range(2)):
+    #     base = (fem.cp_on_skin[ii] * dx_inv - 0.5).cast(int)
+    #     for i, j, k in (ti.ndrange(3, 3, 3)):
+    #         offset = ti.Vector([i, j, k])
+    #         dist = fem.cp_attractor[ii] - dx * (base + offset)
+    #         grid_v[base + offset] += 0.1 + dist * dt * fem.force_strength[None]
 
 
 @ti.kernel
@@ -121,6 +119,13 @@ def g2p(fem : ti.template(), dt : ti.f32, pid : ti.template()):
         fem.v[p] = new_v
         fem.x[p] += new_v * dt
         fem.C[p] = new_C
+
+    # attractor 引力施加到cp_on_skin附近的粒子上
+    for p in fem.skin_be_attracted:
+        if(fem.skin_be_attracted[p]!=0):
+            for ii in range(2):
+                dist = fem.cp_attractor[ii] - fem.cp_on_skin[ii] #dist from attractor to skin
+                fem.v[p] +=  dist * dt * fem.force_strength[None] / fem.m[p]
 
 def solve(cnt, fems, log=True):
     frame_time_left = frame_dt

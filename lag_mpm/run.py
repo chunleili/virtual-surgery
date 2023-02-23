@@ -130,6 +130,13 @@ def update_cp_pos(frame:ti.i32):
     fems[0].cp_on_skin[1] = fems[0].x[cp2] 
     fems[0].cp_attractor[fems[0].cp_id[None]] += fems[0].keyboard_move[None]  #user controlling
 
+@ti.kernel
+def mark_skin_attracted_particles():
+    for p in fems[0].x:
+        for ii in ti.static(range(2)):
+            dist_around_skin = fems[0].x[p] - fems[0].cp_on_skin[ii] #dist from cp_on_skin to skin
+            if(dist_around_skin.norm()<0.01):
+                fems[0].skin_be_attracted[p] = ii #0是非被吸引的粒子，1是被cp1吸引的粒子，2是被cp2吸引的粒子
 
 
 window = ti.ui.Window("virtual surgery", (1920, 1080))
@@ -150,6 +157,7 @@ if __name__ == "__main__":
     paused = ti.field(int, shape=())
     paused[None] = 1
     init_cp_pos()
+    mark_skin_attracted_particles()
     plys = read_animation()
     while window.running:
         # user controlling of control points
