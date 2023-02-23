@@ -130,13 +130,36 @@ def update_cp_pos(frame:ti.i32):
     fems[0].cp_on_skin[1] = fems[0].x[cp2] 
     fems[0].cp_attractor[fems[0].cp_id[None]] += fems[0].keyboard_move[None]  #user controlling
 
+    # 只是为了visualize 实际被吸引的一坨点
+    for show_num in (show_be_attracted1):
+        show_be_attracted1_x[show_num] = fems[0].x[show_be_attracted1[show_num]]
+    for show_num in (show_be_attracted2):
+        show_be_attracted2_x[show_num] = fems[0].x[show_be_attracted2[show_num]]
+
+
+
+show_be_attracted1_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
+show_be_attracted2_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
+show_be_attracted1 = ti.field(ti.i32, shape=(7))
+show_be_attracted2 = ti.field(ti.i32, shape=(7))
+
 @ti.kernel
 def mark_skin_attracted_particles():
+    show_num1 = 0
+    show_num2 = 0
     for p in fems[0].x:
         for ii in ti.static(range(2)):
             dist_around_skin = fems[0].x[p] - fems[0].cp_on_skin[ii] #dist from cp_on_skin to skin
             if(dist_around_skin.norm()<0.01):
-                fems[0].skin_be_attracted[p] = ii #0是非被吸引的粒子，1是被cp1吸引的粒子，2是被cp2吸引的粒子
+                fems[0].skin_be_attracted[p] = ii+1 #0是非被吸引的粒子，1是被cp1吸引的粒子，2是被cp2吸引的粒子
+        if(fems[0].skin_be_attracted[p] == 1):
+            print("p ",p," is attracted by cp1")
+            show_be_attracted1[show_num1] = p
+            show_num1+=1
+        if(fems[0].skin_be_attracted[p] == 2):
+            print("p ",p," is attracted by cp2")
+            show_be_attracted2[show_num2] = p
+            show_num2+=1
 
 
 window = ti.ui.Window("virtual surgery", (1920, 1080))
@@ -205,6 +228,8 @@ if __name__ == "__main__":
         scene.particles(fems[0].cp_on_skin, 1e-2, color = (1, 0, 0)) #在皮肤上的
         scene.particles(fems[0].cp_user, 1e-2, color = (1, 1, 0)) # 导入的动画/键盘控制的点
         scene.particles(fems[0].cp_attractor, 1e-2, color = (0, 1, 0)) # 实际计算的点 绿色
+        scene.particles(show_be_attracted1_x, 5e-3, color = (1, 1, 1)) #只是为了visualize实际被吸引的一坨粒子
+        scene.particles(show_be_attracted2_x, 5e-3, color = (1, 1, 0.5)) #只是为了visualize实际被吸引的一坨粒子
         scene.mesh(ground.verts.x, ground_indices, color = (0.5,0.5,0.5))
         scene.mesh(coord.verts.x, coord_indices, color = (0.5,0.5,0.5))
 
