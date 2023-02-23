@@ -75,9 +75,9 @@ def gridOp(fem : ti.template(), dt : ti.f32):
                 grid_v[I][x] = 0.0
                 grid_v[I] *= fraction
 
-    for ii in ti.static(range(2)):
+    for ii in (range(2)):
         base = (fem.cp_on_skin[ii] * dx_inv - 0.5).cast(int)
-        for i, j, k in ti.static(ti.ndrange(3, 3, 3)):
+        for i, j, k in (ti.ndrange(3, 3, 3)):
             offset = ti.Vector([i, j, k])
             dist = fem.cp_attractor[ii] - dx * (base + offset)
             # grid_v[base + offset] += dist.norm() * dist / (0.01 + dist.norm()) * dt * fem.force_strength[None]

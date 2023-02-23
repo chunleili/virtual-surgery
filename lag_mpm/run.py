@@ -2,7 +2,7 @@ import taichi as ti
 import meshtaichi_patcher as Patcher
 import read_ply
 
-ti.init(arch=ti.cuda, random_seed=0, device_memory_GB=4)
+ti.init(arch=ti.cuda, random_seed=0, device_memory_GB=4,kernel_profiler=True)
 
 from fem import *
 
@@ -239,3 +239,5 @@ if __name__ == "__main__":
         if frame == anime_end_frame:
             paused[None] = 1
         window.show()
+
+    ti.profiler.print_kernel_profiler_info() 
