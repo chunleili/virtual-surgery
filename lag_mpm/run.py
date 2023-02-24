@@ -42,7 +42,8 @@ def initialize():
             model = Patcher.load_mesh_rawdata("./models/armadillo0/armadillo0.1.node")
             model[0] = transform(model[0], model_size, [x, y, 0.05 + (model_size / 2 + 0.012) * i])
         if(is_skin):
-            model = Patcher.load_mesh_rawdata("./models/initial_my_skin/initial_my_skin.1.node")
+            # model = Patcher.load_mesh_rawdata("./models/initial_my_skin/initial_my_skin.1.node")
+            model = Patcher.load_mesh_rawdata("./models/skin/skin3.1.node")
             # model[0] = scale_modtiel_to_01(model[0])
         models.append(model)
 
@@ -101,9 +102,8 @@ init_indices_surf(coord, coord_indices)
 
 # cp1 = 15948
 # cp2 = 20187
-# cp1 = 15941
-# cp2 = 20212
-cp1, cp2 = 13007, 2484
+cp1,cp2 = 15941, 20212
+# cp1, cp2 = 13007, 2484
 
 #AD-HOC: 现在先直接通过tetview手动看出来控制点的编号，然后update它
 # @ti.kernel
@@ -111,12 +111,17 @@ def init_cp_pos():
     fems[0].cp_on_skin[0] = fems[0].x[cp1]
     fems[0].cp_on_skin[1] = fems[0].x[cp2]
 
-anime_start_frame, anime_end_frame = 1, 250
+# anime_start_frame, anime_end_frame = 1, 250
+# ply_path = "D:/Dev/virtual-surgery/models/my_skin_cp/cp12_"
+# def read_animation():
+#     plys = read_ply.read_ply(ply_path, start=anime_start_frame, stop=anime_end_frame+1)
+#     return plys
+
+anime_start_frame, anime_end_frame = 23, 200
+ply_path = "D:/Dev/virtual-surgery/models/control_points/CP12_"
 def read_animation():
-    ply_path = "D:/Dev/virtual-surgery/models/my_skin_cp/cp12_"
     plys = read_ply.read_ply(ply_path, start=anime_start_frame, stop=anime_end_frame+1)
     return plys
-    
 
 def copy_cp(frame,plys):
     if(frame < len(plys)):
