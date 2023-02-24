@@ -40,7 +40,7 @@ class FEM():
         self.force_strength = ti.field(ti.f32, shape=())
         self.cp_user = ti.Vector.field(3, ti.f32, shape=(2)) #从外界导入的控制点的路径
 
-        self.force_strength[None] = 50
+        self.force_strength[None] = 500
 
         self.skin_be_attracted = ti.field(ti.i32, shape=len(mesh.verts))
     

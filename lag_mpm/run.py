@@ -148,10 +148,16 @@ def mark_skin_attracted_particles():
     show_num1 = 0
     show_num2 = 0
     for p in fems[0].x:
-        for ii in ti.static(range(2)):
-            dist_around_skin = fems[0].x[p] - fems[0].cp_on_skin[ii] #dist from cp_on_skin to skin
-            if(dist_around_skin.norm()<0.01):
-                fems[0].skin_be_attracted[p] = ii+1 #0是非被吸引的粒子，1是被cp1吸引的粒子，2是被cp2吸引的粒子
+        #0是非被吸引的粒子，1是被cp1吸引的粒子，2是被cp2吸引的粒子
+        #dist from cp_on_skin to skin
+        dist_around_skin = fems[0].x[p] - fems[0].cp_on_skin[0] 
+        if(dist_around_skin.norm()<0.01):
+            fems[0].skin_be_attracted[p] = 1 
+
+        dist_around_skin = fems[0].x[p] - fems[0].cp_on_skin[1]
+        if(dist_around_skin.norm()<0.01):
+            fems[0].skin_be_attracted[p] = 2
+
         if(fems[0].skin_be_attracted[p] == 1):
             print("p ",p," is attracted by cp1")
             show_be_attracted1[show_num1] = p
@@ -178,15 +184,16 @@ camera.fov(75)
 if __name__ == "__main__":
     frame = 1
     paused = ti.field(int, shape=())
-    paused[None] = 1
+    paused[None] = 0
     init_cp_pos()
     mark_skin_attracted_particles()
     plys = read_animation()
-    while window.running:
-        # user controlling of control points
-        fems[0].keyboard_move[None] = ti.Vector([0.0, 0.0, 0.0])
-        cp_move_speed = 5* 0.001
 
+    # user controlling of control points
+    cp_move_speed = 5* 0.001
+    fems[0].keyboard_move[None] = ti.Vector([0.0, 0.0, 0.0])
+
+    while window.running:
         for e in window.get_events(ti.ui.PRESS):
             if e.key == ti.ui.ESCAPE:
                 exit()
@@ -248,7 +255,7 @@ if __name__ == "__main__":
             gui.text("w/a/s/d/q/e to move camera")
             gui.text("press j/l/i/k/u/o to move control point")
             gui.text("press space to pause/continue")
-            fems[0].force_strength[None] = gui.slider_float("force_strength", fems[0].force_strength[None], 0, 1e5)
+            fems[0].force_strength[None] = gui.slider_float("force_strength", fems[0].force_strength[None], 0, 1e3)
 
             gui.text("frame: " + str(frame))
             gui.text("camera.curr_position: " + str(camera.curr_position))

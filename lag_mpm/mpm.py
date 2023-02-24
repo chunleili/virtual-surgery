@@ -38,6 +38,15 @@ def buildPid(fem : ti.template(), pid : ti.template()):
 
 @ti.kernel
 def p2g(fem : ti.template(), dt : ti.f32, pid : ti.template()):
+    # attractor 引力施加到cp_on_skin附近的粒子上
+    for p in fem.skin_be_attracted:
+        if(fem.skin_be_attracted[p]==1):
+            dist = fem.cp_attractor[0] - fem.cp_on_skin[0]
+            fem.f[p] +=  dist * fem.force_strength[None]
+        elif(fem.skin_be_attracted[p]==2):
+            dist = fem.cp_attractor[1] - fem.cp_on_skin[1]
+            fem.f[p] +=  dist * fem.force_strength[None]
+
     ti.block_local(grid_m)
     for d in ti.static(range(3)):
         ti.block_local(grid_v.get_scalar_field(d))
@@ -120,12 +129,6 @@ def g2p(fem : ti.template(), dt : ti.f32, pid : ti.template()):
         fem.x[p] += new_v * dt
         fem.C[p] = new_C
 
-    # attractor 引力施加到cp_on_skin附近的粒子上
-    for p in fem.skin_be_attracted:
-        if(fem.skin_be_attracted[p]!=0):
-            for ii in range(2):
-                dist = fem.cp_attractor[ii] - fem.cp_on_skin[ii] #dist from attractor to skin
-                fem.v[p] +=  dist * dt * fem.force_strength[None] / fem.m[p]
 
 def solve(cnt, fems, log=True):
     frame_time_left = frame_dt
