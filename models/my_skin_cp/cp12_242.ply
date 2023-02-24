@@ -1,0 +1,15 @@
+ply
+format ascii 1.0
+comment created by gply, a Houdini tool.
+comment converted from .[b]geo
+comment for more information about Houdini, try:
+comment www.sidefx.com
+element vertex 2
+property float x
+property float y
+property float z
+element face 0
+property list uchar int vertex_indices
+end_header
+0.572814047 0.134411246 0.554640472 
+0.402980953 0.119048312 0.368186414 
