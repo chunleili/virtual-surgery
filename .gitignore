@@ -2,3 +2,4 @@
 a.lua
 ref/tiPBD
 __pycache__
+results/*

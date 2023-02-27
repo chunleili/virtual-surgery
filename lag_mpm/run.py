@@ -186,7 +186,7 @@ camera.fov(75)
 if __name__ == "__main__":
     frame = 1
     paused = ti.field(int, shape=())
-    paused[None] = 1
+    paused[None] = 0
     init_cp_pos()
     mark_skin_attracted_particles()
     plys = read_animation()
@@ -283,6 +283,12 @@ if __name__ == "__main__":
 
         if frame == anime_end_frame:
             paused[None] = 1
+        
+        save_img = False#如果导出图片序列，这里改成True
+        if save_img:
+            filename = f'./results/frame_{frame:05d}.png'
+            window.save_image(filename)
+        
         window.show()
 
     ti.profiler.print_kernel_profiler_info() 
