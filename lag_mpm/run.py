@@ -116,7 +116,8 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------------- #
     fems = []
     skin = None
-    mesh_file_path = "models/initial_my_skin/initial_my_skin.1.node"
+    # mesh_file_path = "models/initial_my_skin/initial_my_skin.1.node"
+    mesh_file_path = "models/converted_tetgen_mesh/skin_dumped.node"
 
     # 读取模型（皮）
     skin = initialize_mesh(mesh_file_path)
@@ -151,7 +152,7 @@ if __name__ == "__main__":
     paused[None] = 0
 
     fems[0].force_strength[None] = 500
-    
+
     # ---------------------------------------------------------------------------- #
     #                                  render loop                                 #
     # ---------------------------------------------------------------------------- #
