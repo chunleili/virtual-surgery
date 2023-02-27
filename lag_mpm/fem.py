@@ -1,6 +1,5 @@
 import taichi as ti
 from mpm import *
-# from utils import *
 
 @ti.data_oriented
 class FEM():
@@ -10,7 +9,6 @@ class FEM():
         self.nu = 0.03 # Poisson's ratio: nu \in [0, 0.5)
         self.mu = self.E / (2 * (1 + self.nu))
         self.la = self.E * self.nu / ((1 + self.nu) * (1 -2 * self.nu))
-        # self.la = 0.0
 
         self.x = ti.Vector.field(3, ti.f32, shape=len(mesh.verts))
         self.v = ti.Vector.field(3, ti.f32, shape=len(mesh.verts))
@@ -31,23 +29,12 @@ class FEM():
         self.block.dynamic(ti.axes(3), 1024 * 1024, chunk_size=leaf_block_size**3 * 8).place(self.pid)
 
         self.precomputeTetMat(self.mesh)
-    #     self.initColor(self.mesh)
 
-        self.cp_id = ti.field(ti.i32, shape=()) #控制点的id
         self.cp_on_skin = ti.Vector.field(3, ti.f32, shape=(2)) #在皮上的红点
-        self.keyboard_move = ti.Vector.field(3, ti.f32, shape=()) #键盘控制的移动
         self.cp_attractor = ti.Vector.field(3, ti.f32, shape=(2)) #控制点引力中心的位置
         self.force_strength = ti.field(ti.f32, shape=())
-        self.cp_user = ti.Vector.field(3, ti.f32, shape=(2)) #从外界导入的控制点的路径
-
-        self.force_strength[None] = 500
-
         self.skin_be_attracted = ti.field(ti.i32, shape=len(mesh.verts))
-    
-    # @ti.kernel
-    # def initColor(self, mesh : ti.template()):
-    #     for v in mesh.verts:
-    #         self.color[v.id] = get_color(self.x[v.id][2] / 2.0) # Red -> Blue
+
     
     @ti.kernel
     def precomputeTetMat(self, mesh : ti.template()):

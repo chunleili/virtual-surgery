@@ -42,16 +42,13 @@ def read_auxiliary_meshes():
     return ground, coord, ground_indices, coord_indices
 
 
-
-
-
 def read_animation(anime_path, start_frame, stop_frame):
     anime = read_ply.read_ply(anime_path, start=start_frame, stop=stop_frame+1)
     return anime
 
-def update_attractor(frame,anime_sequence):
+def update_attractor(frame,anime_sequence, keyboard_move):
     #user controlling
-    fems[0].cp_attractor[fems[0].cp_id[None]] += fems[0].keyboard_move[None]  
+    fems[0].cp_attractor[cp_id] += keyboard_move
 
     #read anime
     if(frame < len(anime_sequence)):
@@ -117,11 +114,6 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------------- #
     #                                paramters setup                               #
     # ---------------------------------------------------------------------------- #
-    show_be_attracted1_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
-    show_be_attracted2_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
-    show_be_attracted1 = ti.field(ti.i32, shape=(7))
-    show_be_attracted2 = ti.field(ti.i32, shape=(7))
-
     fems = []
     skin = None
     mesh_file_path = "models/initial_my_skin/initial_my_skin.1.node"
@@ -138,6 +130,10 @@ if __name__ == "__main__":
 
     # 初始化cp_on_skin和它一圈周围的点
     init_cp_on_skin_pos()
+    show_be_attracted1_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
+    show_be_attracted2_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
+    show_be_attracted1 = ti.field(ti.i32, shape=(7))
+    show_be_attracted2 = ti.field(ti.i32, shape=(7))
     mark_skin_attracted_particles()
 
     # 读取动画
@@ -146,14 +142,16 @@ if __name__ == "__main__":
     anime_sequence = read_animation(anime_path, anime_start_frame, anime_end_frame)
 
     # 用户控制attractor
-    user_move_speed = 1 * 0.001
-    fems[0].keyboard_move[None] = ti.Vector([0.0, 0.0, 0.0])
+    kerboard_move_speed = 1 * 0.001
+    cp_id = 0 # 0是cp1，1是cp2
 
     # 暂停以及计算帧数
     frame = 1
     paused = ti.field(int, shape=())
     paused[None] = 0
 
+    fems[0].force_strength[None] = 500
+    
     # ---------------------------------------------------------------------------- #
     #                                  render loop                                 #
     # ---------------------------------------------------------------------------- #
@@ -167,23 +165,24 @@ if __name__ == "__main__":
             if e.key == "r":
                 frame = 1 #reload animation
                 
-        move_dir = (fems[0].cp_attractor[fems[0].cp_id[None]]) - camera.curr_position
+        keyboard_move = ti.Vector([0.0, 0.0, 0.0])
+        move_dir = (fems[0].cp_attractor[cp_id]) - camera.curr_position
         if window.is_pressed("u"):#up y
-            fems[0].keyboard_move[None][1] = user_move_speed
+            keyboard_move[1] = kerboard_move_speed
         if window.is_pressed("o"):#down y
-            fems[0].keyboard_move[None][1] = -user_move_speed
+            keyboard_move[1] = -kerboard_move_speed
         if window.is_pressed("j"):
-            fems[0].keyboard_move[None] = -user_move_speed * move_dir.cross(camera.curr_up)
+            keyboard_move = -kerboard_move_speed * move_dir.cross(camera.curr_up)
         if window.is_pressed("l"):
-            fems[0].keyboard_move[None] = user_move_speed * move_dir.cross(camera.curr_up)
+            keyboard_move = kerboard_move_speed * move_dir.cross(camera.curr_up)
         if window.is_pressed("i"):
-            fems[0].keyboard_move[None] = user_move_speed * move_dir
+            keyboard_move = kerboard_move_speed * move_dir
         if window.is_pressed("k"):
-            fems[0].keyboard_move[None] = -user_move_speed * move_dir
+            keyboard_move = -kerboard_move_speed * move_dir
 
         # 真正的计算逻辑在这！
         if not paused[None]:
-            update_attractor(frame, anime_sequence)
+            update_attractor(frame, anime_sequence, keyboard_move)
             solve(1, fems)
             update_visual_cp(frame)
             frame += 1
@@ -193,7 +192,7 @@ if __name__ == "__main__":
         
         # cp_on_skin是用来显示的在皮上的红点
         # cp_attractor是实际计算中的引力中心，
-        scene.particles(fems[0].x, 1e-4, color = (0.5, 0.5, 0.5))
+        # scene.particles(fems[0].x, 1e-4, color = (0.5, 0.5, 0.5))
         scene.particles(fems[0].cp_on_skin, 1e-2, color = (1, 0, 0)) #在皮肤上的
         scene.particles(fems[0].cp_attractor, 1e-2, color = (0, 1, 0)) # 实际计算的点 绿色
         scene.particles(show_be_attracted1_x, 5e-3, color = (1, 1, 1)) #只是为了visualize实际被吸引的一坨粒子
@@ -218,14 +217,14 @@ if __name__ == "__main__":
             gui.text("frame: " + str(frame))
             gui.text("camera.curr_position: " + str(camera.curr_position))
             gui.text("camera.curr_lookat: " + str(camera.curr_lookat))
-            gui.text("control point id: " + str(fems[0].cp_id))
-            gui.text("cp attractor pos: " + str(fems[0].cp_attractor[fems[0].cp_id[None]]))
+            gui.text("control point id: " + str(cp_id))
+            gui.text("cp attractor pos: " + str(fems[0].cp_attractor[cp_id]))
             gui.text("attractor move dir: " + str(move_dir))
             switch = gui.button("switch control point")
-            if switch and fems[0].cp_id[None] == 0:
-                fems[0].cp_id[None] = 1
-            elif switch and fems[0].cp_id[None] == 1:
-                fems[0].cp_id[None] = 0
+            if switch and cp_id == 0:
+                cp_id = 1
+            elif switch and cp_id == 1:
+                cp_id = 0
             if(gui.button("reload animation(r)")):
                 frame = 1
             release = gui.button("release control point")
