@@ -6,59 +6,10 @@ ti.init(arch=ti.cuda, random_seed=0, device_memory_GB=4,kernel_profiler=True)
 
 from fem import *
 
-fems, models = [], []
-
-def transform(verts, scale, offset): return verts / max(verts.max(0) - verts.min(0)) * scale + offset
-# def scale_model_to_01(verts): 
-#     bbox_min, bbox_max = find_bbox(verts)
-#     print("bbox_min: ", bbox_min)
-#     print("bbox_max: ", bbox_max)
-#     # 缩放至最大bbox边长为0.8
-#     max_scale = max(bbox_max - bbox_min)
-#     print("max_scale: ", max_scale)
-#     sclae_factor = 0.8 / max_scale 
-#     verts *= sclae_factor
-#     # 平移至每一个bbox在0.1-0.9范围内
-#     bbox_min_new, bbox_max_new = find_bbox(verts)
-#     print("bbox_min_new: ", bbox_min_new)
-#     print("bbox_max_new: ", bbox_max_new)
-#     verts += (0.1 - bbox_min_new)
-#     return verts
-
-# def find_bbox(verts):
-#     min_x, min_y, min_z = np.min(verts, axis=0)
-#     max_x, max_y, max_z = np.max(verts, axis=0)
-#     return np.array([min_x, min_y, min_z]), np.array([max_x, max_y, max_z])
-
-is_aramdillo = False
-is_skin = True
-armadillo, skin = None, None
-
-def initialize():
-    global armadillo, skin
-    def init_mesh(x, y, i):
-        # #armadillo
-        if(is_aramdillo):
-            model = Patcher.load_mesh_rawdata("./models/armadillo0/armadillo0.1.node")
-            model[0] = transform(model[0], model_size, [x, y, 0.05 + (model_size / 2 + 0.012) * i])
-        if(is_skin):
-            model = Patcher.load_mesh_rawdata("./models/initial_my_skin/initial_my_skin.1.node")
-            # model[0] = scale_modtiel_to_01(model[0])
-        models.append(model)
-
-    # #armadillo TODO:
-    if(is_aramdillo):
-        model_size = 0.1 
-        init_mesh(0.5, 0.5, 0)
-        armadillo = Patcher.load_mesh(models, relations=["CV"])
-        fems.append(FEM(armadillo))
-        
-    if(is_skin):
-        init_mesh(0,0,0)
-        skin = Patcher.load_mesh(models, relations=["CV"])
-        fems.append(FEM(skin))
-
-initialize()
+def initialize_mesh(mesh_file_path):
+    skin = Patcher.load_mesh(mesh_file_path, relations=["CV"])
+    fems.append(FEM(skin))
+    return skin
 
 @ti.kernel
 def init_indices_tet(mesh: ti.template(), indices: ti.template()):
@@ -68,69 +19,50 @@ def init_indices_tet(mesh: ti.template(), indices: ti.template()):
             for j in ti.static(range(3)):
                 indices[(c.id * 4 + i) * 3 + j] = c.verts[ind[i][j]].id
 
-if(is_aramdillo):
-    armadillo_indices = ti.field(ti.u32, shape = len(armadillo.cells) * 4 * 3)
-    init_indices_tet(armadillo, armadillo_indices)
-
-if(is_skin):
-    skin_indices = ti.field(ti.u32, shape = len(skin.cells) * 4 * 3)
-    init_indices_tet(skin, skin_indices)
-
-
-
 @ti.kernel
 def init_indices_surf(mesh: ti.template(), indices: ti.template()):
     for f in mesh.faces:
         for j in ti.static(range(3)):
-           indices[f.id * 3 + j] = f.verts[j].id
+            indices[f.id * 3 + j] = f.verts[j].id
 
-ground_model = "models/ground.obj"
-ground = Patcher.load_mesh(ground_model, relations=["FV"])
-ground_indices = ti.field(ti.i32, shape = len(ground.faces) * 3)
-ground.verts.place({'x' : ti.math.vec3})
-ground.verts.x.from_numpy(ground.get_position_as_numpy())
-init_indices_surf(ground, ground_indices)
+def read_auxiliary_meshes():
+    ground_model = "models/ground.obj"
+    ground = Patcher.load_mesh(ground_model, relations=["FV"])
+    ground_indices = ti.field(ti.i32, shape = len(ground.faces) * 3)
+    ground.verts.place({'x' : ti.math.vec3})
+    ground.verts.x.from_numpy(ground.get_position_as_numpy())
+    init_indices_surf(ground, ground_indices)
 
-coord_model = "models/coord.obj"
-coord = Patcher.load_mesh(coord_model, relations=["FV"])
-coord.verts.place({'x' : ti.math.vec3})
-coord.verts.x.from_numpy(coord.get_position_as_numpy())
-coord_indices = ti.field(ti.i32, shape = len(coord.faces) * 3)
-init_indices_surf(coord, coord_indices)
+    coord_model = "models/coord.obj"
+    coord = Patcher.load_mesh(coord_model, relations=["FV"])
+    coord.verts.place({'x' : ti.math.vec3})
+    coord.verts.x.from_numpy(coord.get_position_as_numpy())
+    coord_indices = ti.field(ti.i32, shape = len(coord.faces) * 3)
+    init_indices_surf(coord, coord_indices)
+    return ground, coord, ground_indices, coord_indices
 
 
-# cp1 = 15948
-# cp2 = 20187
-# cp1 = 15941
-# cp2 = 20212
-cp1, cp2 = 13007, 2484
 
-#AD-HOC: 现在先直接通过tetview手动看出来控制点的编号，然后update它
-# @ti.kernel
-def init_cp_pos():
-    fems[0].cp_on_skin[0] = fems[0].x[cp1]
-    fems[0].cp_on_skin[1] = fems[0].x[cp2]
 
-anime_start_frame, anime_end_frame = 1, 250
-def read_animation():
-    ply_path = "D:/Dev/virtual-surgery/models/my_skin_cp/cp12_"
-    plys = read_ply.read_ply(ply_path, start=anime_start_frame, stop=anime_end_frame+1)
-    return plys
-    
 
-def copy_cp(frame,plys):
-    if(frame < len(plys)):
-        fems[0].cp_user.from_numpy(plys[frame])
-        fems[0].cp_attractor[0] = fems[0].cp_user[0] #用导入动画的点控制attractor
-        fems[0].cp_attractor[1] = fems[0].cp_user[1] 
+def read_animation(anime_path, start_frame, stop_frame):
+    anime = read_ply.read_ply(anime_path, start=start_frame, stop=stop_frame+1)
+    return anime
+
+def update_attractor(frame,anime_sequence):
+    #user controlling
+    fems[0].cp_attractor[fems[0].cp_id[None]] += fems[0].keyboard_move[None]  
+
+    #read anime
+    if(frame < len(anime_sequence)):
+        fems[0].cp_attractor.from_numpy(anime_sequence[frame])
 
 
 @ti.kernel
-def update_cp_pos(frame:ti.i32):
+def update_visual_cp(frame:ti.i32):
     #cp_on_skin是用来显示的在皮上的红点, cp_attractor是实际计算中的引力中心，cp_user是用户控制或者导入动画的点
     fems[0].cp_on_skin[0] = fems[0].x[cp1] 
     fems[0].cp_on_skin[1] = fems[0].x[cp2] 
-    fems[0].cp_attractor[fems[0].cp_id[None]] += fems[0].keyboard_move[None]  #user controlling
 
     # 只是为了visualize 实际被吸引的一坨点
     for show_num in (show_be_attracted1):
@@ -138,13 +70,13 @@ def update_cp_pos(frame:ti.i32):
     for show_num in (show_be_attracted2):
         show_be_attracted2_x[show_num] = fems[0].x[show_be_attracted2[show_num]]
 
+# 初始化皮上的控制点（红点）
+#AD-HOC: 现在先直接通过tetview手动看出来控制点的编号，然后update它
+def init_cp_on_skin_pos():
+    fems[0].cp_on_skin[0] = fems[0].x[cp1]
+    fems[0].cp_on_skin[1] = fems[0].x[cp2]
 
-
-show_be_attracted1_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
-show_be_attracted2_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
-show_be_attracted1 = ti.field(ti.i32, shape=(7))
-show_be_attracted2 = ti.field(ti.i32, shape=(7))
-
+# 把皮上点（红点）周围的一圈点标记出来
 @ti.kernel
 def mark_skin_attracted_particles():
     show_num1 = 0
@@ -177,24 +109,54 @@ scene = ti.ui.Scene()
 camera = ti.ui.Camera()
 camera.up(0, 1, 0)
 camera.fov(75)
-# camera.position(0.7,0.7,0.1)
 camera.position(0.621,0.667,0.915)
-# camera.lookat(0, 0, 0)
 camera.lookat(0.443, -0.055,  0.247)
 camera.fov(75)
 
 if __name__ == "__main__":
+    # ---------------------------------------------------------------------------- #
+    #                                paramters setup                               #
+    # ---------------------------------------------------------------------------- #
+    show_be_attracted1_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
+    show_be_attracted2_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
+    show_be_attracted1 = ti.field(ti.i32, shape=(7))
+    show_be_attracted2 = ti.field(ti.i32, shape=(7))
+
+    fems = []
+    skin = None
+    mesh_file_path = "models/initial_my_skin/initial_my_skin.1.node"
+
+    # 读取模型（皮）
+    skin = initialize_mesh(mesh_file_path)
+    skin_indices = ti.field(ti.u32, shape = len(skin.cells) * 4 * 3)
+    init_indices_tet(skin, skin_indices)
+    # cp1, cp2 = 15941,  20212
+    cp1, cp2 = 13007, 2484
+
+    # 读取辅助模型（地面、坐标轴）
+    ground, coord, ground_indices, coord_indices = read_auxiliary_meshes()
+
+    # 初始化cp_on_skin和它一圈周围的点
+    init_cp_on_skin_pos()
+    mark_skin_attracted_particles()
+
+    # 读取动画
+    anime_start_frame, anime_end_frame = 1, 250
+    anime_path = "D:/Dev/virtual-surgery/models/my_skin_cp/cp12_"
+    anime_sequence = read_animation(anime_path, anime_start_frame, anime_end_frame)
+
+    # 用户控制attractor
+    user_move_speed = 1 * 0.001
+    fems[0].keyboard_move[None] = ti.Vector([0.0, 0.0, 0.0])
+
+    # 暂停以及计算帧数
     frame = 1
     paused = ti.field(int, shape=())
     paused[None] = 0
-    init_cp_pos()
-    mark_skin_attracted_particles()
-    plys = read_animation()
 
-    # user controlling of control points
-    cp_move_speed = 5* 0.001
-    fems[0].keyboard_move[None] = ti.Vector([0.0, 0.0, 0.0])
-
+    # ---------------------------------------------------------------------------- #
+    #                                  render loop                                 #
+    # ---------------------------------------------------------------------------- #
     while window.running:
         for e in window.get_events(ti.ui.PRESS):
             if e.key == ti.ui.ESCAPE:
@@ -207,24 +169,23 @@ if __name__ == "__main__":
                 
         move_dir = (fems[0].cp_attractor[fems[0].cp_id[None]]) - camera.curr_position
         if window.is_pressed("u"):#up y
-            fems[0].keyboard_move[None][1] = cp_move_speed
+            fems[0].keyboard_move[None][1] = user_move_speed
         if window.is_pressed("o"):#down y
-            fems[0].keyboard_move[None][1] = -cp_move_speed
+            fems[0].keyboard_move[None][1] = -user_move_speed
         if window.is_pressed("j"):
-            fems[0].keyboard_move[None] = -cp_move_speed * move_dir.cross(camera.curr_up)
+            fems[0].keyboard_move[None] = -user_move_speed * move_dir.cross(camera.curr_up)
         if window.is_pressed("l"):
-            fems[0].keyboard_move[None] = cp_move_speed * move_dir.cross(camera.curr_up)
+            fems[0].keyboard_move[None] = user_move_speed * move_dir.cross(camera.curr_up)
         if window.is_pressed("i"):
-            fems[0].keyboard_move[None] = cp_move_speed * move_dir
+            fems[0].keyboard_move[None] = user_move_speed * move_dir
         if window.is_pressed("k"):
-            fems[0].keyboard_move[None] = -cp_move_speed * move_dir
+            fems[0].keyboard_move[None] = -user_move_speed * move_dir
 
-
-
+        # 真正的计算逻辑在这！
         if not paused[None]:
-            copy_cp(frame, plys)
+            update_attractor(frame, anime_sequence)
             solve(1, fems)
-            update_cp_pos(frame)
+            update_visual_cp(frame)
             frame += 1
 
         camera.track_user_inputs(window, movement_speed=0.005, hold_key=ti.ui.RMB)
@@ -232,20 +193,15 @@ if __name__ == "__main__":
         
         # cp_on_skin是用来显示的在皮上的红点
         # cp_attractor是实际计算中的引力中心，
-        # cp_user是用户控制或者导入动画的点
         scene.particles(fems[0].x, 1e-4, color = (0.5, 0.5, 0.5))
         scene.particles(fems[0].cp_on_skin, 1e-2, color = (1, 0, 0)) #在皮肤上的
-        scene.particles(fems[0].cp_user, 1e-2, color = (1, 1, 0)) # 导入的动画/键盘控制的点
         scene.particles(fems[0].cp_attractor, 1e-2, color = (0, 1, 0)) # 实际计算的点 绿色
         scene.particles(show_be_attracted1_x, 5e-3, color = (1, 1, 1)) #只是为了visualize实际被吸引的一坨粒子
         scene.particles(show_be_attracted2_x, 5e-3, color = (1, 1, 0.5)) #只是为了visualize实际被吸引的一坨粒子
         scene.mesh(ground.verts.x, ground_indices, color = (0.5,0.5,0.5))
         scene.mesh(coord.verts.x, coord_indices, color = (0.5,0.5,0.5))
 
-        if(is_skin):
-            scene.mesh(fems[0].x, skin_indices, color = (232/255, 190/255, 172/255))
-        if(is_aramdillo):
-            scene.mesh(fems[0].x, armadillo_indices, color = (232/255, 190/255, 172/255))#armadillo
+        scene.mesh(fems[0].x, skin_indices, color = (232/255, 190/255, 172/255))
 
         scene.point_light(pos=(0.5, 1.5, 0.5), color=(1, 1, 1))
         scene.ambient_light((0.2,0.2,0.2))
@@ -291,4 +247,4 @@ if __name__ == "__main__":
         
         window.show()
 
-    ti.profiler.print_kernel_profiler_info() 
+    # ti.profiler.print_kernel_profiler_info() 
