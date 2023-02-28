@@ -6,8 +6,8 @@ allowed_cfl = 0.8
 # gravity = 10.0
 gravity = 0
 
-# n_grid = (256, 256, 512)
-n_grid = (64, 64, 64)
+n_grid = (256, 256, 512)
+# n_grid = (64, 64, 64)
 dx = 1.0 / n_grid[0]
 dx_inv = 1.0 / dx
 

@@ -72,9 +72,10 @@ def write_tetgen(tet_indices,positions, pointcount, primitivecount,to_path, gen_
 
 
 if __name__ == '__main__':
-    to_path="D:/Dev/virtual-surgery/models/converted_tetgen_mesh/skin_dumped"#注意写到没有后缀为止
-    from_path="D:/Dev/virtual-surgery/models/converted_tetgen_mesh/skin_init.geo"
+    # from_path="D:/Dev/virtual-surgery/models/converted_tetgen_mesh/skin_init.geo"
+    from_path="D:/Dev/virtual-surgery/models/converted_tetgen_mesh/initial_my_skin2.geo"
+    to_path=from_path[:-4]
 
     tet_indices,positions, pointcount,vertexcount,primitivecount = read_geo(from_path)
 
-    write_tetgen(tet_indices,positions, pointcount,primitivecount,to_path, gen_face=False)
+    write_tetgen(tet_indices,positions, pointcount,primitivecount,to_path, gen_face=True)

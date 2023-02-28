@@ -1,10 +1,15 @@
 import taichi as ti
 import meshtaichi_patcher as Patcher
 import read_ply
+import numpy as np
 
 ti.init(arch=ti.cuda, random_seed=0, device_memory_GB=4,kernel_profiler=True)
 
 from fem import *
+
+vec3 = ti.math.vec3
+int_array = ti.ndarray(ti.i32, shape=10)
+vec_array = ti.ndarray(vec3, shape=10)
 
 def initialize_mesh(mesh_file_path):
     skin = Patcher.load_mesh(mesh_file_path, relations=["CV"])
@@ -15,6 +20,7 @@ def initialize_mesh(mesh_file_path):
 def init_indices_tet(mesh: ti.template(), indices: ti.template()):
     for c in mesh.cells:
         ind = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]]
+        # ind = [[0, 1, 2], [0, 3, 2], [0, 1, 3], [1, 2, 3]]
         for i in ti.static(range(4)):
             for j in ti.static(range(3)):
                 indices[(c.id * 4 + i) * 3 + j] = c.verts[ind[i][j]].id
@@ -69,7 +75,7 @@ def update_visual_cp(frame:ti.i32):
 
 # 初始化皮上的控制点（红点）
 #AD-HOC: 现在先直接通过tetview手动看出来控制点的编号，然后update它
-def init_cp_on_skin_pos():
+def init_cp_on_skin_pos(cp1,cp2):
     fems[0].cp_on_skin[0] = fems[0].x[cp1]
     fems[0].cp_on_skin[1] = fems[0].x[cp2]
 
@@ -98,6 +104,26 @@ def mark_skin_attracted_particles():
             show_be_attracted2[show_num2] = p
             show_num2+=1
 
+def direct_import_cp_ids(filename, cp_ids_ti):
+    cp_ids = []
+    with open(filename, "r") as f:
+        for line in f:
+            cp_ids.append(int(line))
+    cp_ids_ti.from_numpy(np.array(cp_ids))
+
+@ti.kernel
+def mark_direct_imported_cp_ids(cp1_ids:ti.template(), cp2_ids:ti.template()):
+    for p in fems[0].x:
+        for i in range(cp1_ids.shape[0]):
+            id = cp1_ids[i]
+            if p == id:
+                fems[0].skin_be_attracted[id] = 1
+                print("p ",p," is attracted by cp1")
+        for i in range(cp2_ids.shape[0]):
+            id = cp2_ids[i]
+            if p == id:
+                fems[0].skin_be_attracted[id] = 2
+                print("p ",p," is attracted by cp2")
 
 window = ti.ui.Window("virtual surgery", (1920, 1080))
 gui = window.get_gui()
@@ -117,29 +143,39 @@ if __name__ == "__main__":
     fems = []
     skin = None
     # mesh_file_path = "models/initial_my_skin/initial_my_skin.1.node"
-    mesh_file_path = "models/converted_tetgen_mesh/skin_dumped.node"
+    # mesh_file_path = "models/converted_tetgen_mesh/skin_dumped.node"
+    mesh_file_path = "models/converted_tetgen_mesh/initial_my_skin2.node"
 
     # 读取模型（皮）
     skin = initialize_mesh(mesh_file_path)
     skin_indices = ti.field(ti.u32, shape = len(skin.cells) * 4 * 3)
     init_indices_tet(skin, skin_indices)
-    # cp1, cp2 = 15941,  20212
-    cp1, cp2 = 13007, 2484
 
     # 读取辅助模型（地面、坐标轴）
     ground, coord, ground_indices, coord_indices = read_auxiliary_meshes()
 
     # 初始化cp_on_skin和它一圈周围的点
-    init_cp_on_skin_pos()
-    show_be_attracted1_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
-    show_be_attracted2_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
-    show_be_attracted1 = ti.field(ti.i32, shape=(7))
-    show_be_attracted2 = ti.field(ti.i32, shape=(7))
-    mark_skin_attracted_particles()
+    show_be_attracted1_x = ti.Vector.field(3, dtype=ti.f32, shape=(10))
+    show_be_attracted2_x = ti.Vector.field(3, dtype=ti.f32, shape=(10))
+    show_be_attracted1 = ti.field(ti.i32, shape=(10))
+    show_be_attracted2 = ti.field(ti.i32, shape=(10))
+    # cp1, cp2 = 15941,  20212
+    # cp1, cp2 = 13007, 2484
+    # init_cp_on_skin_pos()
+    # mark_skin_attracted_particles()
+
+    direct_import_cp_ids("D:/Dev/virtual-surgery/models/converted_tetgen_mesh/cp1_id.txt",show_be_attracted1)
+    direct_import_cp_ids("D:/Dev/virtual-surgery/models/converted_tetgen_mesh/cp2_id.txt",show_be_attracted2)
+    cp1 = show_be_attracted1[0]
+    cp2 = show_be_attracted2[0]
+    print("cp1 ",cp1," cp2 ",cp2)
+    mark_direct_imported_cp_ids(show_be_attracted1, show_be_attracted2)
+    init_cp_on_skin_pos(cp1,cp2)
 
     # 读取动画
-    anime_start_frame, anime_end_frame = 1, 250
-    anime_path = "D:/Dev/virtual-surgery/models/my_skin_cp/cp12_"
+    anime_start_frame, anime_end_frame = 1, 200
+    # anime_path = "D:/Dev/virtual-surgery/models/my_skin_cp/cp12_"
+    anime_path = "D:/Dev/virtual-surgery/models/control_points/cp12_anime_"
     anime_sequence = read_animation(anime_path, anime_start_frame, anime_end_frame)
 
     # 用户控制attractor
@@ -149,9 +185,9 @@ if __name__ == "__main__":
     # 暂停以及计算帧数
     frame = 1
     paused = ti.field(int, shape=())
-    paused[None] = 0
+    paused[None] = 1
 
-    fems[0].force_strength[None] = 500
+    fems[0].force_strength[None] = 50000
 
     # ---------------------------------------------------------------------------- #
     #                                  render loop                                 #
@@ -177,9 +213,9 @@ if __name__ == "__main__":
         if window.is_pressed("l"):
             keyboard_move = kerboard_move_speed * move_dir.cross(camera.curr_up)
         if window.is_pressed("i"):
-            keyboard_move = kerboard_move_speed * move_dir
+            keyboard_move = kerboard_move_speed*5 * move_dir
         if window.is_pressed("k"):
-            keyboard_move = -kerboard_move_speed * move_dir
+            keyboard_move = -kerboard_move_speed*5 * move_dir
 
         # 真正的计算逻辑在这！
         if not paused[None]:
@@ -194,14 +230,14 @@ if __name__ == "__main__":
         # cp_on_skin是用来显示的在皮上的红点
         # cp_attractor是实际计算中的引力中心，
         # scene.particles(fems[0].x, 1e-4, color = (0.5, 0.5, 0.5))
-        scene.particles(fems[0].cp_on_skin, 1e-2, color = (1, 0, 0)) #在皮肤上的
         scene.particles(fems[0].cp_attractor, 1e-2, color = (0, 1, 0)) # 实际计算的点 绿色
         scene.particles(show_be_attracted1_x, 5e-3, color = (1, 1, 1)) #只是为了visualize实际被吸引的一坨粒子
         scene.particles(show_be_attracted2_x, 5e-3, color = (1, 1, 0.5)) #只是为了visualize实际被吸引的一坨粒子
+        scene.particles(fems[0].cp_on_skin, 1e-3, color = (1, 0, 0)) #在皮肤上的
         scene.mesh(ground.verts.x, ground_indices, color = (0.5,0.5,0.5))
         scene.mesh(coord.verts.x, coord_indices, color = (0.5,0.5,0.5))
 
-        scene.mesh(fems[0].x, skin_indices, color = (232/255, 190/255, 172/255))
+        scene.mesh(fems[0].x, skin_indices, color = (232/255, 190/255, 172/255),two_sided=True)
 
         scene.point_light(pos=(0.5, 1.5, 0.5), color=(1, 1, 1))
         scene.ambient_light((0.2,0.2,0.2))
