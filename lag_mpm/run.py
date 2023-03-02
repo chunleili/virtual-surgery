@@ -143,10 +143,11 @@ if __name__ == "__main__":
 
     # 初始化cp_on_skin和它一圈周围的点
     init_cp_on_skin_pos()
-    show_be_attracted1_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
-    show_be_attracted2_x = ti.Vector.field(3, dtype=ti.f32, shape=(7))
-    show_be_attracted1 = ti.field(ti.i32, shape=(7))
-    show_be_attracted2 = ti.field(ti.i32, shape=(7))
+    max_show_attracted = 7
+    show_be_attracted1_x = ti.Vector.field(3, dtype=ti.f32, shape=(max_show_attracted))
+    show_be_attracted2_x = ti.Vector.field(3, dtype=ti.f32, shape=(max_show_attracted))
+    show_be_attracted1 = ti.field(ti.i32, shape=(max_show_attracted))
+    show_be_attracted2 = ti.field(ti.i32, shape=(max_show_attracted))
     mark_skin_attracted_particles()
 
     # 读取动画
