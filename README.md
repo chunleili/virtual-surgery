@@ -29,3 +29,11 @@ python ./lag_mpm/run.py
 - switch control point：切换控制点(一共有两个绿色的控制点)
 - release control point：释放控制点
 - reload animation：重新加载动画
+
+## 6. 目录结构
+
+- lag_mpm：主要代码
+- models：模型文件
+- pics：图片
+- results：结果网格序列
+- scripts：houdini的geo格式四面体转换为tetgen格式的脚本
