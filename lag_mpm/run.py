@@ -8,8 +8,8 @@ from fem import *
 
 def initialize_mesh(mesh_file_path):
     skin = Patcher.load_mesh(mesh_file_path, relations=["CV"])
-    fems.append(FEM(skin))
-    return skin
+    fem = FEM(skin)
+    return skin, fem
 
 @ti.kernel
 def init_indices_tet(mesh: ti.template(), indices: ti.template()):
@@ -48,52 +48,52 @@ def read_animation(anime_path, start_frame, stop_frame):
 
 def update_attractor(frame,anime_sequence, keyboard_move):
     #user controlling
-    fems[0].cp_attractor[cp_id] += keyboard_move
+    fem.cp_attractor[cp_id] += keyboard_move
 
     #read anime
     if(frame < len(anime_sequence)):
-        fems[0].cp_attractor.from_numpy(anime_sequence[frame])
+        fem.cp_attractor.from_numpy(anime_sequence[frame])
 
 
 @ti.kernel
-def update_visual_cp(frame:ti.i32):
+def update_visual_cp():
     #cp_on_skin是用来显示的在皮上的红点, cp_attractor是实际计算中的引力中心，cp_user是用户控制或者导入动画的点
-    fems[0].cp_on_skin[0] = fems[0].x[cp1] 
-    fems[0].cp_on_skin[1] = fems[0].x[cp2] 
+    fem.cp_on_skin[0] = fem.x[cp1] 
+    fem.cp_on_skin[1] = fem.x[cp2] 
 
     # 只是为了visualize 实际被吸引的一坨点
     for show_num in (show_be_attracted1):
-        show_be_attracted1_x[show_num] = fems[0].x[show_be_attracted1[show_num]]
+        show_be_attracted1_x[show_num] = fem.x[show_be_attracted1[show_num]]
     for show_num in (show_be_attracted2):
-        show_be_attracted2_x[show_num] = fems[0].x[show_be_attracted2[show_num]]
+        show_be_attracted2_x[show_num] = fem.x[show_be_attracted2[show_num]]
 
 # 初始化皮上的控制点（红点）
 #AD-HOC: 现在先直接通过tetview手动看出来控制点的编号，然后update它
 def init_cp_on_skin_pos():
-    fems[0].cp_on_skin[0] = fems[0].x[cp1]
-    fems[0].cp_on_skin[1] = fems[0].x[cp2]
+    fem.cp_on_skin[0] = fem.x[cp1]
+    fem.cp_on_skin[1] = fem.x[cp2]
 
 # 把皮上点（红点）周围的一圈点标记出来
 @ti.kernel
 def mark_skin_attracted_particles():
     show_num1 = 0
     show_num2 = 0
-    for p in fems[0].x:
+    for p in fem.x:
         #0是非被吸引的粒子，1是被cp1吸引的粒子，2是被cp2吸引的粒子
         #dist from cp_on_skin to skin
-        dist_around_skin = fems[0].x[p] - fems[0].cp_on_skin[0] 
+        dist_around_skin = fem.x[p] - fem.cp_on_skin[0] 
         if(dist_around_skin.norm()<0.01):
-            fems[0].skin_be_attracted[p] = 1 
+            fem.skin_be_attracted[p] = 1 
 
-        dist_around_skin = fems[0].x[p] - fems[0].cp_on_skin[1]
+        dist_around_skin = fem.x[p] - fem.cp_on_skin[1]
         if(dist_around_skin.norm()<0.01):
-            fems[0].skin_be_attracted[p] = 2
+            fem.skin_be_attracted[p] = 2
 
-        if(fems[0].skin_be_attracted[p] == 1):
+        if(fem.skin_be_attracted[p] == 1):
             print("p ",p," is attracted by cp1")
             show_be_attracted1[show_num1] = p
             show_num1+=1
-        if(fems[0].skin_be_attracted[p] == 2):
+        if(fem.skin_be_attracted[p] == 2):
             print("p ",p," is attracted by cp2")
             show_be_attracted2[show_num2] = p
             show_num2+=1
@@ -128,12 +128,12 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------------- #
     #                                paramters setup                               #
     # ---------------------------------------------------------------------------- #
-    fems = []
-    skin = None
-    mesh_file_path = "models/initial_my_skin/initial_my_skin.1.node"
 
+    # fem = None
+    # skin = None
     # 读取模型（皮）
-    skin = initialize_mesh(mesh_file_path)
+    mesh_file_path = "models/initial_my_skin/initial_my_skin.1.node"
+    skin, fem = initialize_mesh(mesh_file_path)
     skin_indices = ti.field(ti.u32, shape = len(skin.cells) * 4 * 3)
     init_indices_tet(skin, skin_indices)
     # cp1, cp2 = 15941,  20212
@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
     # 读取动画
     anime_start_frame, anime_end_frame = 1, 250
-    anime_path = "D:/Dev/virtual-surgery/models/my_skin_cp/cp12_"
+    anime_path = "models/my_skin_cp/cp12_"
     anime_sequence = read_animation(anime_path, anime_start_frame, anime_end_frame)
 
     # 用户控制attractor
@@ -164,7 +164,7 @@ if __name__ == "__main__":
     paused = ti.field(int, shape=())
     paused[None] = 0
 
-    fems[0].force_strength[None] = 500
+    fem.force_strength[None] = 500
 
     export_mesh = False #如果导出网格序列，这里改成True
     export_img = False #如果导出图片序列，这里改成True
@@ -188,7 +188,7 @@ if __name__ == "__main__":
                 frame = 1 #reload animation
                 
         keyboard_move = ti.Vector([0.0, 0.0, 0.0])
-        move_dir = (fems[0].cp_attractor[cp_id]) - camera.curr_position
+        move_dir = (fem.cp_attractor[cp_id]) - camera.curr_position
         if window.is_pressed("u"):#up y
             keyboard_move[1] = kerboard_move_speed
         if window.is_pressed("o"):#down y
@@ -205,11 +205,11 @@ if __name__ == "__main__":
         # 真正的计算逻辑在这！
         if not paused[None]:
             update_attractor(frame, anime_sequence, keyboard_move)
-            solve(1, fems)
-            update_visual_cp(frame)
+            solve(1, fem)
+            update_visual_cp()
             
             if(export_mesh):
-                export_ply_mesh_sequence(fems[0].x, skin_indices, frame, "results/skin_mesh")
+                export_ply_mesh_sequence(fem.x, skin_indices, frame, "results/skin_sim_anime")
             frame += 1
 
         camera.track_user_inputs(window, movement_speed=0.005, hold_key=ti.ui.RMB)
@@ -217,15 +217,15 @@ if __name__ == "__main__":
         
         # cp_on_skin是用来显示的在皮上的红点
         # cp_attractor是实际计算中的引力中心，
-        # scene.particles(fems[0].x, 1e-4, color = (0.5, 0.5, 0.5))
-        scene.particles(fems[0].cp_on_skin, 1e-2, color = (1, 0, 0)) #在皮肤上的
-        scene.particles(fems[0].cp_attractor, 1e-2, color = (0, 1, 0)) # 实际计算的点 绿色
+        # scene.particles(fem.x, 1e-4, color = (0.5, 0.5, 0.5))
+        scene.particles(fem.cp_on_skin, 1e-2, color = (1, 0, 0)) #在皮肤上的
+        scene.particles(fem.cp_attractor, 1e-2, color = (0, 1, 0)) # 实际计算的点 绿色
         scene.particles(show_be_attracted1_x, 5e-3, color = (1, 1, 1)) #只是为了visualize实际被吸引的一坨粒子
         scene.particles(show_be_attracted2_x, 5e-3, color = (1, 1, 0.5)) #只是为了visualize实际被吸引的一坨粒子
         scene.mesh(ground.verts.x, ground_indices, color = (0.5,0.5,0.5))
         scene.mesh(coord.verts.x, coord_indices, color = (0.5,0.5,0.5))
 
-        scene.mesh(fems[0].x, skin_indices, color = (232/255, 190/255, 172/255))
+        scene.mesh(fem.x, skin_indices, color = (232/255, 190/255, 172/255))
 
         scene.point_light(pos=(0.5, 1.5, 0.5), color=(1, 1, 1))
         scene.ambient_light((0.2,0.2,0.2))
@@ -237,13 +237,13 @@ if __name__ == "__main__":
             gui.text("w/a/s/d/q/e to move camera")
             gui.text("press j/l/i/k/u/o to move control point")
             gui.text("press space to pause/continue")
-            fems[0].force_strength[None] = gui.slider_float("force_strength", fems[0].force_strength[None], 0, 1e3)
+            fem.force_strength[None] = gui.slider_float("force_strength", fem.force_strength[None], 0, 1e3)
 
             gui.text("frame: " + str(frame))
             gui.text("camera.curr_position: " + str(camera.curr_position))
             gui.text("camera.curr_lookat: " + str(camera.curr_lookat))
             gui.text("control point id: " + str(cp_id))
-            gui.text("cp attractor pos: " + str(fems[0].cp_attractor[cp_id]))
+            gui.text("cp attractor pos: " + str(fem.cp_attractor[cp_id]))
             gui.text("attractor move dir: " + str(move_dir))
             switch = gui.button("switch control point")
             if switch and cp_id == 0:
@@ -254,7 +254,7 @@ if __name__ == "__main__":
                 frame = 1
             release = gui.button("release control point")
             if(release):
-                fems[0].force_strength[None] = 0
+                fem.force_strength[None] = 0
             
             if(gui.button("pause/continue(SPACE)")):
                 paused[None] = not paused[None]

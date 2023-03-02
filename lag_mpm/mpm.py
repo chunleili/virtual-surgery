@@ -130,28 +130,21 @@ def g2p(fem : ti.template(), dt : ti.f32, pid : ti.template()):
         fem.C[p] = new_C
 
 
-def solve(cnt, fems, log=True):
-    frame_time_left = frame_dt
+def solve(num_substep, fem):
     substep = 0
-    # while frame_time_left > 0.0: 
-    if(True):#DEBUG
-        # if log: print(f"substep: {substep}")
+    for _ in range(num_substep):
         substep += 1
-
         max_grid_v = computeMaxGridV(grid_v)
         cfl_dt = allowed_cfl * dx / (max_grid_v + 1e-6)
-        dt0 = ti.min(dt, cfl_dt, frame_time_left)   
-        frame_time_left -= dt0
+        dt0 = ti.min(dt, cfl_dt)   
 
         grid.deactivate_all()
-        for i in range(cnt):    #cnt=1
-            fems[i].grid.deactivate_all()
-            buildPid(fems[i], fems[i].pid)
-            fems[i].f.fill(0.0)
-            fems[i].computeForce(fems[i].mesh)
-            p2g(fems[i], dt0, fems[i].pid)
+        fem.grid.deactivate_all()
+        buildPid(fem, fem.pid)
+        fem.f.fill(0.0)
+        fem.computeForce(fem.mesh)
+        p2g(fem, dt0, fem.pid)
 
-        gridOp(fems[i], dt0)
+        gridOp(fem, dt0)
 
-        for i in range(cnt):
-            g2p(fems[i], dt0, fems[i].pid)
+        g2p(fem, dt0, fem.pid)
