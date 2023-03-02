@@ -166,7 +166,7 @@ if __name__ == "__main__":
 
     fems[0].force_strength[None] = 500
 
-    export_mesh = True #如果导出网格序列，这里改成True
+    export_mesh = False #如果导出网格序列，这里改成True
     export_img = False #如果导出图片序列，这里改成True
 
     if export_mesh or export_img: #构造文件夹

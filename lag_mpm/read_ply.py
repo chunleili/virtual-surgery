@@ -6,11 +6,8 @@ def read_ply(ply_path_no_ext, start=1, stop=100):
     pts=[]
     for i in range(start, stop):
         ply_path = ply_path_no_ext + f"{i:}.ply"
-        # print("Reading ", ply_path)
         mesh = trimesh.load(ply_path)
         v = mesh.vertices
-        # mesh.show()
-        # print(np.array(v))
         pts.append(np.array(v))
     return pts
 
