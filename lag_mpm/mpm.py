@@ -124,11 +124,19 @@ def g2p(fem : ti.template(), dt : ti.f32, pid : ti.template()):
             new_v += weight * grid_v[base + offset]
             new_C += weight * 4 * dx_inv * grid_v[base + offset].outer_product(dpos)
 
-        # 显示时间积分 TODO: 我打算改成隐式的看看
-        fem.v[p] = new_v
-        fem.x[p] += new_v * dt
-        fem.C[p] = new_C
+        if inside_boundary(fem.x[p]):
+            fem.v[p] = new_v
+            fem.x[p] += new_v * dt
+            fem.C[p] = new_C
 
+@ti.func
+def inside_boundary(x):
+    bbox = [0.2, 0.8]
+    res = False
+    for i in ti.static(range(3)):
+        if x[i] > bbox[0] and x[i] < bbox[1]:
+            res = True
+    return res
 
 def solve(num_substep, fem):
     substep = 0
