@@ -99,6 +99,20 @@ def mark_skin_attracted_particles():
             show_num2+=1
 
 
+def export_ply_mesh_sequence(vert_pos, indices, frame, series_prefix):
+    x = vert_pos.to_numpy()[:, 0]
+    y = vert_pos.to_numpy()[:, 1]
+    z = vert_pos.to_numpy()[:, 2]
+    indices_np = indices.to_numpy()
+    
+    writer = ti.tools.PLYWriter(num_vertices=vert_pos.shape[0],
+                                num_faces=int(indices_np.shape[0]/3),
+                                face_type="tri")
+    writer.add_vertex_pos(x, y, z)
+    writer.add_faces(indices_np)
+    writer.export_frame(frame, series_prefix)
+
+
 window = ti.ui.Window("virtual surgery", (1920, 1080))
 gui = window.get_gui()
 canvas = window.get_canvas()
@@ -151,6 +165,14 @@ if __name__ == "__main__":
     paused[None] = 0
 
     fems[0].force_strength[None] = 500
+
+    export_mesh = True #如果导出网格序列，这里改成True
+    export_img = False #如果导出图片序列，这里改成True
+
+    if export_mesh or export_img: #构造文件夹
+        import os
+        if not os.path.exists("results"):
+            os.mkdir("results")
     
     # ---------------------------------------------------------------------------- #
     #                                  render loop                                 #
@@ -185,6 +207,9 @@ if __name__ == "__main__":
             update_attractor(frame, anime_sequence, keyboard_move)
             solve(1, fems)
             update_visual_cp(frame)
+            
+            if(export_mesh):
+                export_ply_mesh_sequence(fems[0].x, skin_indices, frame, "results/skin_mesh")
             frame += 1
 
         camera.track_user_inputs(window, movement_speed=0.005, hold_key=ti.ui.RMB)
@@ -239,10 +264,9 @@ if __name__ == "__main__":
         if frame == anime_end_frame:
             paused[None] = 1
         
-        save_img = False#如果导出图片序列，这里改成True
-        if save_img:
-            filename = f'./results/frame_{frame:05d}.png'
-            window.save_image(filename)
+        if export_img:
+            img_filename = f'results/{frame:04d}.png'
+            window.save_image(img_filename)
         
         window.show()
 
