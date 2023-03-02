@@ -13,7 +13,7 @@ python ./lag_mpm/run.py
 ## 4. 效果
 ![demo](pics/demo.png)
 
-![demo](pics/demo.mp4)
+视频展示： [video](pics/demo.mp4)
 
 ## 5. 控制方法
 
