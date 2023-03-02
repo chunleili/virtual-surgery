@@ -22,6 +22,7 @@ class FEM():
 
         self.mesh = mesh
         self.x.from_numpy(mesh.get_position_as_numpy())
+        self.mesh.verts.x = self.x
 
         self.grid = ti.root.pointer(ti.ijk, tuple([x // grid_block_size for x in n_grid]))
         self.block = self.grid.pointer(ti.ijk, grid_block_size // leaf_block_size)
@@ -54,7 +55,7 @@ class FEM():
     def PK1(self, u, l, F):
         U, sig, V = ti.svd(F, ti.f32)
         R = U @ V.transpose()
-        J = F.determinant()
+        # J = F.determinant()
         # return 2 * u * (F - R) + l * (J - 1) * J * F.inverse().transpose()
         return 2 * u * (F - R) + l * ((R.transpose() @ F).trace() - 3) *R 
 

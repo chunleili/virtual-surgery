@@ -2,7 +2,8 @@ import taichi as ti
 import meshtaichi_patcher as Patcher
 import read_ply
 
-ti.init(arch=ti.cuda, random_seed=0, device_memory_GB=4,kernel_profiler=True)
+# ti.init(arch=ti.cuda, device_memory_GB=4,kernel_profiler=True)
+ti.init(arch=ti.cuda, device_memory_GB=4)
 
 from fem import *
 
@@ -129,8 +130,6 @@ if __name__ == "__main__":
     #                                paramters setup                               #
     # ---------------------------------------------------------------------------- #
 
-    # fem = None
-    # skin = None
     # 读取模型（皮）
     mesh_file_path = "models/initial_my_skin/initial_my_skin.1.node"
     skin, fem = initialize_mesh(mesh_file_path)
